@@ -2,8 +2,8 @@
 # This script deploys the application to GCP using only gcloud commands
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$ProjectId,
+    [Parameter(Mandatory=$false)]
+    [string]$ProjectId = "ttsai-461209",
     
     [Parameter(Mandatory=$false)]
     [string]$Region = "us-central1",

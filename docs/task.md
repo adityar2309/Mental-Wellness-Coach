@@ -418,21 +418,25 @@ This document outlines the comprehensive development roadmap for the Mental Well
   - [x] Updated Flask app default port from 3000 to 5000 for consistency ✅
   - [x] Fixed health check URLs to use correct port (5000) ✅
   - [x] Updated gunicorn bind address to use port 5000 ✅
+  - [x] Fixed PROJECT_ID variable substitution in PowerShell deployment script ✅
 - **Root Cause**: 
   - Cloud Build runs from root directory but Dockerfile expected to find files in current working directory
   - Dockerfile tried to copy `requirements.txt` and `.` but needed `backend/requirements.txt` and `backend/`
   - Port mismatch between Dockerfile (3000), Flask app (3000), and Cloud Run deployment (5000)
+  - PowerShell script used `$PROJECT_ID` instead of `$ProjectId` causing empty project ID in Docker image tags
 - **Solution**: 
   - Updated Dockerfile paths to account for build context from root directory
   - Standardized all components to use port 5000 throughout the deployment pipeline
-- **Skills Required**: Docker, Google Cloud Build, Flask deployment, containerization
+  - Fixed PowerShell variable reference from `$PROJECT_ID` to `$ProjectId` in Cloud Build configuration
+- **Skills Required**: Docker, Google Cloud Build, Flask deployment, containerization, PowerShell scripting
 - **Priority**: Critical (blocking deployment)
 - **Estimated Hours**: 1 hour
-- **Actual Hours**: 0.5 hours
+- **Actual Hours**: 1 hour
 - **Notes**: 
   - Cloud Build should now successfully build the Docker image without status 125 errors
   - All port configurations are now consistent across Dockerfile, Flask app, and Cloud Run
   - Build context properly handles copying backend files from root directory
+  - PROJECT_ID variable now correctly resolves to actual project ID in Docker image tags
 
 ---
 

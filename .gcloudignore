@@ -1,0 +1,90 @@
+# Mental Wellness Coach - Google Cloud Build Ignore File
+# This file specifies files to exclude from Cloud Build uploads
+
+# Development files
+.git/
+.github/
+.vscode/
+.cursor/
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Testing
+tests/
+.pytest_cache/
+coverage/
+htmlcov/
+.coverage
+*.cover
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Node.js (not needed for backend deployment)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+.npm/
+.yarn-integrity
+
+# Mobile development (not needed for backend)
+mobile/
+.expo/
+.expo-shared/
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Documentation that's not needed for runtime
+docs/
+*.md
+PROJECT_STORY.md
+TEST_RESULTS_SUMMARY.md
+DIRECTORY_STRUCTURE.md 

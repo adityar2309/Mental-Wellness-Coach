@@ -35,7 +35,8 @@ WORKDIR /app
 # Note: This Dockerfile is built from the root directory, so we need backend/requirements.txt
 COPY backend/requirements.txt .
 
-# Install Python dependencies
+# Verify requirements file exists and install dependencies
+RUN if [ ! -f requirements.txt ]; then echo "ERROR: requirements.txt not found" && exit 1; fi
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
@@ -47,6 +48,9 @@ FROM dependencies as development
 # Copy backend application code
 # Since we're building from root, copy the entire backend directory
 COPY --chown=flask:flask backend/ .
+
+# Verify critical files exist
+RUN if [ ! -f app.py ]; then echo "ERROR: app.py not found" && exit 1; fi
 
 # Create necessary directories
 RUN mkdir -p /app/logs && chown -R flask:flask /app/logs
@@ -72,6 +76,9 @@ FROM dependencies as production
 # Copy backend application code
 # Since we're building from root, copy the entire backend directory
 COPY --chown=flask:flask backend/ .
+
+# Verify critical files exist
+RUN if [ ! -f app.py ]; then echo "ERROR: app.py not found" && exit 1; fi
 
 # Create necessary directories
 RUN mkdir -p /app/logs && chown -R flask:flask /app/logs
