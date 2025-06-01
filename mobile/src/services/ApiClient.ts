@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { SecureStorage } from './SecureStorage';
 
 // Configuration
 const API_BASE_URL = __DEV__ 
@@ -37,7 +37,7 @@ export class ApiClient {
    * Get authentication headers
    */
   private static async getAuthHeaders(): Promise<Record<string, string>> {
-    const token = await SecureStore.getItemAsync('access_token');
+    const token = await SecureStorage.getItemAsync('access_token');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

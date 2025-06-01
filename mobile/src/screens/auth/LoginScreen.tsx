@@ -26,7 +26,7 @@ interface Props {
 
 export default function LoginScreen({ navigation }: Props) {
   const [formData, setFormData] = useState<LoginData>({
-    username: '',
+    email: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +35,11 @@ export default function LoginScreen({ navigation }: Props) {
   const validateForm = (): boolean => {
     const newErrors: Partial<LoginData> = {};
 
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
 
     if (!formData.password) {
@@ -56,7 +59,7 @@ export default function LoginScreen({ navigation }: Props) {
       
       Alert.alert(
         'Welcome Back!',
-        `Hello ${response.user.username}! Ready to continue your wellness journey?`,
+        `Hello ${response.user.name || 'there'}! Ready to continue your wellness journey?`,
         [
           {
             text: 'Let\'s Go!',
@@ -101,19 +104,20 @@ export default function LoginScreen({ navigation }: Props) {
           {/* Form */}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Username</Text>
+              <Text style={styles.label}>Email Address</Text>
               <TextInput
-                style={[styles.input, errors.username && styles.inputError]}
-                value={formData.username}
-                onChangeText={(value) => handleInputChange('username', value)}
-                placeholder="Enter your username"
+                style={[styles.input, errors.email && styles.inputError]}
+                value={formData.email}
+                onChangeText={(value) => handleInputChange('email', value)}
+                placeholder="Enter your email"
                 placeholderTextColor="#9ca3af"
+                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!isLoading}
               />
-              {errors.username && (
-                <Text style={styles.errorText}>{errors.username}</Text>
+              {errors.email && (
+                <Text style={styles.errorText}>{errors.email}</Text>
               )}
             </View>
 

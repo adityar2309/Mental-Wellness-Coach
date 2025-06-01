@@ -27,10 +27,9 @@ interface Props {
 
 export default function RegisterScreen({ navigation }: Props) {
   const [formData, setFormData] = useState<RegisterData>({
-    username: '',
     email: '',
     password: '',
-    full_name: '',
+    name: '',
   });
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -38,13 +37,6 @@ export default function RegisterScreen({ navigation }: Props) {
 
   const validateForm = (): boolean => {
     const newErrors: Partial<RegisterData & { confirmPassword: string }> = {};
-
-    // Username validation
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Username must be at least 3 characters';
-    }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -81,7 +73,7 @@ export default function RegisterScreen({ navigation }: Props) {
       
       Alert.alert(
         'Welcome to Mental Wellness Coach!',
-        `Hello ${response.user.username}! Your account has been created successfully. Let's start your wellness journey!`,
+        `Hello ${response.user.name || 'there'}! Your account has been created successfully. Let's start your wellness journey!`,
         [
           {
             text: 'Get Started',
@@ -140,30 +132,13 @@ export default function RegisterScreen({ navigation }: Props) {
               <Text style={styles.label}>Full Name (Optional)</Text>
               <TextInput
                 style={styles.input}
-                value={formData.full_name}
-                onChangeText={(value) => handleInputChange('full_name', value)}
+                value={formData.name}
+                onChangeText={(value) => handleInputChange('name', value)}
                 placeholder="Enter your full name"
                 placeholderTextColor="#9ca3af"
                 autoCapitalize="words"
                 editable={!isLoading}
               />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Username *</Text>
-              <TextInput
-                style={[styles.input, errors.username && styles.inputError]}
-                value={formData.username}
-                onChangeText={(value) => handleInputChange('username', value)}
-                placeholder="Choose a username"
-                placeholderTextColor="#9ca3af"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-              {errors.username && (
-                <Text style={styles.errorText}>{errors.username}</Text>
-              )}
             </View>
 
             <View style={styles.inputContainer}>

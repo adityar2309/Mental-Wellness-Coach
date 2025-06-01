@@ -1,9 +1,10 @@
 import { ApiClient, MoodApi, ConversationApi, CrisisApi, ApiError } from '../../src/services/ApiClient';
-import * as SecureStore from 'expo-secure-store';
+import { SecureStorage } from '../../src/services/SecureStorage';
 
-// Mock SecureStore
-jest.mock('expo-secure-store', () => ({
-  getItemAsync: jest.fn(),
+jest.mock('../../src/services/SecureStorage', () => ({
+  SecureStorage: {
+    getItemAsync: jest.fn(),
+  },
 }));
 
 // Mock fetch
@@ -16,13 +17,13 @@ describe('ApiClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (fetch as jest.Mock).mockClear();
-    (SecureStore.getItemAsync as jest.Mock).mockClear();
+    (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockClear();
   });
 
   describe('Authentication Headers', () => {
     it('includes auth token when available', async () => {
       const mockToken = 'test-token-123';
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(mockToken);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(mockToken);
       (fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ status: 'success', data: {} }),
@@ -43,7 +44,7 @@ describe('ApiClient', () => {
     });
 
     it('works without auth token', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
       (fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ status: 'success', data: {} }),
@@ -68,7 +69,7 @@ describe('ApiClient', () => {
 
   describe('HTTP Methods', () => {
     beforeEach(() => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
     });
 
     it('performs GET request correctly', async () => {
@@ -167,7 +168,7 @@ describe('ApiClient', () => {
 
   describe('Error Handling', () => {
     beforeEach(() => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
     });
 
     it('handles API errors correctly', async () => {
@@ -219,7 +220,7 @@ describe('ApiClient', () => {
 describe('MoodApi', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('test-token');
+    (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('test-token');
   });
 
   it('creates mood entry correctly', async () => {
@@ -305,7 +306,7 @@ describe('MoodApi', () => {
 describe('ConversationApi', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('test-token');
+    (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('test-token');
   });
 
   it('starts conversation correctly', async () => {
@@ -351,7 +352,7 @@ describe('ConversationApi', () => {
 describe('CrisisApi', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('test-token');
+    (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('test-token');
   });
 
   it('analyzes content correctly', async () => {

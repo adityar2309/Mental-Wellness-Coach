@@ -1,12 +1,14 @@
 import { AuthService, User, LoginData, RegisterData, AuthResponse } from '../../src/services/AuthService';
+import { SecureStorage } from '../../src/services/SecureStorage';
 import { ApiClient } from '../../src/services/ApiClient';
-import * as SecureStore from 'expo-secure-store';
 
 // Mock dependencies
-jest.mock('expo-secure-store', () => ({
-  setItemAsync: jest.fn(),
-  getItemAsync: jest.fn(),
-  deleteItemAsync: jest.fn(),
+jest.mock('../../src/services/SecureStorage', () => ({
+  SecureStorage: {
+    setItemAsync: jest.fn(),
+    getItemAsync: jest.fn(),
+    deleteItemAsync: jest.fn(),
+  },
 }));
 
 jest.mock('../../src/services/ApiClient', () => ({
@@ -38,15 +40,15 @@ describe('AuthService', () => {
 
   describe('Token Management', () => {
     it('stores token successfully', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       await AuthService.storeToken('test-token');
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('access_token', 'test-token');
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('access_token', 'test-token');
     });
 
     it('handles token storage errors', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
       await expect(AuthService.storeToken('test-token')).rejects.toThrow(
         'Failed to store authentication token'
@@ -54,16 +56,16 @@ describe('AuthService', () => {
     });
 
     it('retrieves token successfully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('stored-token');
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('stored-token');
 
       const token = await AuthService.getToken();
 
       expect(token).toBe('stored-token');
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith('access_token');
+      expect(SecureStorage.SecureStorage.getItemAsync).toHaveBeenCalledWith('access_token');
     });
 
     it('handles token retrieval errors gracefully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Retrieval error'));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockRejectedValue(new Error('Retrieval error'));
 
       const token = await AuthService.getToken();
 
@@ -71,7 +73,7 @@ describe('AuthService', () => {
     });
 
     it('returns null when no token exists', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
 
       const token = await AuthService.getToken();
 
@@ -81,18 +83,18 @@ describe('AuthService', () => {
 
   describe('User Data Management', () => {
     it('stores user data successfully', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       await AuthService.storeUserData(mockUser);
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith(
         'user_data',
         JSON.stringify(mockUser)
       );
     });
 
     it('handles user data storage errors', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
       await expect(AuthService.storeUserData(mockUser)).rejects.toThrow(
         'Failed to store user data'
@@ -100,16 +102,16 @@ describe('AuthService', () => {
     });
 
     it('retrieves user data successfully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(mockUser));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(mockUser));
 
       const userData = await AuthService.getUserData();
 
       expect(userData).toEqual(mockUser);
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith('user_data');
+      expect(SecureStorage.SecureStorage.getItemAsync).toHaveBeenCalledWith('user_data');
     });
 
     it('handles user data retrieval errors gracefully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Retrieval error'));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockRejectedValue(new Error('Retrieval error'));
 
       const userData = await AuthService.getUserData();
 
@@ -117,7 +119,7 @@ describe('AuthService', () => {
     });
 
     it('returns null when no user data exists', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
 
       const userData = await AuthService.getUserData();
 
@@ -127,7 +129,7 @@ describe('AuthService', () => {
 
   describe('Authentication Status', () => {
     it('returns true when token exists', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
 
       const isAuth = await AuthService.isAuthenticated();
 
@@ -135,7 +137,7 @@ describe('AuthService', () => {
     });
 
     it('returns false when no token exists', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
 
       const isAuth = await AuthService.isAuthenticated();
 
@@ -143,7 +145,7 @@ describe('AuthService', () => {
     });
 
     it('returns false on error', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Error'));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockRejectedValue(new Error('Error'));
 
       const isAuth = await AuthService.isAuthenticated();
 
@@ -160,19 +162,19 @@ describe('AuthService', () => {
     };
 
     it('registers user successfully', async () => {
-      (ApiClient.post as jest.Mock).mockResolvedValue(mockAuthResponse);
-      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (ApiClient.ApiClient.post as jest.Mock).mockResolvedValue(mockAuthResponse);
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       const result = await AuthService.register(registerData);
 
-      expect(ApiClient.post).toHaveBeenCalledWith('/auth/register', registerData);
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('access_token', mockAuthResponse.access_token);
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_data', JSON.stringify(mockUser));
+      expect(ApiClient.ApiClient.post).toHaveBeenCalledWith('/auth/register', registerData);
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('access_token', mockAuthResponse.access_token);
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('user_data', JSON.stringify(mockUser));
       expect(result).toEqual(mockAuthResponse);
     });
 
     it('handles registration errors', async () => {
-      (ApiClient.post as jest.Mock).mockRejectedValue(new Error('Registration failed'));
+      (ApiClient.ApiClient.post as jest.Mock).mockRejectedValue(new Error('Registration failed'));
 
       await expect(AuthService.register(registerData)).rejects.toThrow(
         'Registration failed. Please try again.'
@@ -187,19 +189,19 @@ describe('AuthService', () => {
     };
 
     it('logs in user successfully', async () => {
-      (ApiClient.post as jest.Mock).mockResolvedValue(mockAuthResponse);
-      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (ApiClient.ApiClient.post as jest.Mock).mockResolvedValue(mockAuthResponse);
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       const result = await AuthService.login(loginData);
 
-      expect(ApiClient.post).toHaveBeenCalledWith('/auth/login', loginData);
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('access_token', mockAuthResponse.access_token);
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_data', JSON.stringify(mockUser));
+      expect(ApiClient.ApiClient.post).toHaveBeenCalledWith('/auth/login', loginData);
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('access_token', mockAuthResponse.access_token);
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('user_data', JSON.stringify(mockUser));
       expect(result).toEqual(mockAuthResponse);
     });
 
     it('handles login errors', async () => {
-      (ApiClient.post as jest.Mock).mockRejectedValue(new Error('Login failed'));
+      (ApiClient.ApiClient.post as jest.Mock).mockRejectedValue(new Error('Login failed'));
 
       await expect(AuthService.login(loginData)).rejects.toThrow(
         'Login failed. Please check your credentials.'
@@ -209,53 +211,53 @@ describe('AuthService', () => {
 
   describe('User Logout', () => {
     it('clears stored data successfully', async () => {
-      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (SecureStorage.SecureStorage.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       await AuthService.logout();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('access_token');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('user_data');
+      expect(SecureStorage.SecureStorage.deleteItemAsync).toHaveBeenCalledWith('access_token');
+      expect(SecureStorage.SecureStorage.deleteItemAsync).toHaveBeenCalledWith('user_data');
     });
 
     it('handles logout errors gracefully', async () => {
-      (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(new Error('Delete error'));
+      (SecureStorage.SecureStorage.deleteItemAsync as jest.Mock).mockRejectedValue(new Error('Delete error'));
 
       // Should not throw
       await AuthService.logout();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      expect(SecureStorage.SecureStorage.deleteItemAsync).toHaveBeenCalled();
     });
   });
 
   describe('Onboarding Management', () => {
     it('marks onboarding as completed', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       await AuthService.markOnboardingCompleted();
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('onboarding_completed', 'true');
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('onboarding_completed', 'true');
     });
 
     it('handles onboarding completion errors gracefully', async () => {
-      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockRejectedValue(new Error('Storage error'));
 
       // Should not throw
       await AuthService.markOnboardingCompleted();
 
-      expect(SecureStore.setItemAsync).toHaveBeenCalled();
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalled();
     });
 
     it('returns true when onboarding is completed', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('true');
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('true');
 
       const isCompleted = await AuthService.hasCompletedOnboarding();
 
       expect(isCompleted).toBe(true);
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith('onboarding_completed');
+      expect(SecureStorage.SecureStorage.getItemAsync).toHaveBeenCalledWith('onboarding_completed');
     });
 
     it('returns false when onboarding is not completed', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
 
       const isCompleted = await AuthService.hasCompletedOnboarding();
 
@@ -263,7 +265,7 @@ describe('AuthService', () => {
     });
 
     it('returns false on onboarding check error', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Error'));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockRejectedValue(new Error('Error'));
 
       const isCompleted = await AuthService.hasCompletedOnboarding();
 
@@ -273,27 +275,27 @@ describe('AuthService', () => {
 
   describe('Current User Management', () => {
     it('gets current user successfully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
-      (ApiClient.get as jest.Mock).mockResolvedValue({ user: mockUser });
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
+      (ApiClient.ApiClient.get as jest.Mock).mockResolvedValue({ user: mockUser });
 
       const user = await AuthService.getCurrentUser();
 
-      expect(ApiClient.get).toHaveBeenCalledWith('/auth/profile');
+      expect(ApiClient.ApiClient.get).toHaveBeenCalledWith('/auth/profile');
       expect(user).toEqual(mockUser);
     });
 
     it('returns null when no token exists', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue(null);
 
       const user = await AuthService.getCurrentUser();
 
       expect(user).toBeNull();
-      expect(ApiClient.get).not.toHaveBeenCalled();
+      expect(ApiClient.ApiClient.get).not.toHaveBeenCalled();
     });
 
     it('handles API errors when getting current user', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
-      (ApiClient.get as jest.Mock).mockRejectedValue(new Error('API error'));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
+      (ApiClient.ApiClient.get as jest.Mock).mockRejectedValue(new Error('API error'));
 
       const user = await AuthService.getCurrentUser();
 
@@ -301,19 +303,19 @@ describe('AuthService', () => {
     });
 
     it('refreshes user data successfully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
-      (ApiClient.get as jest.Mock).mockResolvedValue({ user: mockUser });
-      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
+      (ApiClient.ApiClient.get as jest.Mock).mockResolvedValue({ user: mockUser });
+      (SecureStorage.SecureStorage.setItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       const user = await AuthService.refreshUserData();
 
       expect(user).toEqual(mockUser);
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_data', JSON.stringify(mockUser));
+      expect(SecureStorage.SecureStorage.setItemAsync).toHaveBeenCalledWith('user_data', JSON.stringify(mockUser));
     });
 
     it('handles refresh errors gracefully', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
-      (ApiClient.get as jest.Mock).mockRejectedValue(new Error('API error'));
+      (SecureStorage.SecureStorage.getItemAsync as jest.Mock).mockResolvedValue('valid-token');
+      (ApiClient.ApiClient.get as jest.Mock).mockRejectedValue(new Error('API error'));
 
       const user = await AuthService.refreshUserData();
 

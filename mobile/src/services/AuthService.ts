@@ -1,31 +1,31 @@
-import * as SecureStore from 'expo-secure-store';
+import { SecureStorage } from './SecureStorage';
 import { ApiClient } from './ApiClient';
 
 export interface User {
   id: string;
-  username: string;
+  username?: string;
   email: string;
-  full_name?: string;
+  name?: string;
   created_at: string;
 }
 
 export interface AuthResponse {
-  access_token: string;
-  token_type: string;
+  access_token?: string;
+  token_type?: string;
+  token?: string;
   user: User;
   message: string;
 }
 
 export interface LoginData {
-  username: string;
+  email: string;
   password: string;
 }
 
 export interface RegisterData {
-  username: string;
   email: string;
   password: string;
-  full_name?: string;
+  name?: string;
 }
 
 const STORAGE_KEYS = {
@@ -40,7 +40,7 @@ export class AuthService {
    */
   static async storeToken(token: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, token);
+      await SecureStorage.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, token);
     } catch (error) {
       console.error('Error storing token:', error);
       throw new Error('Failed to store authentication token');
@@ -52,7 +52,7 @@ export class AuthService {
    */
   static async getToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+      return await SecureStorage.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     } catch (error) {
       console.error('Error retrieving token:', error);
       return null;
@@ -64,7 +64,7 @@ export class AuthService {
    */
   static async storeUserData(user: User): Promise<void> {
     try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+      await SecureStorage.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
     } catch (error) {
       console.error('Error storing user data:', error);
       throw new Error('Failed to store user data');
@@ -76,7 +76,7 @@ export class AuthService {
    */
   static async getUserData(): Promise<User | null> {
     try {
-      const userData = await SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA);
+      const userData = await SecureStorage.getItemAsync(STORAGE_KEYS.USER_DATA);
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
       console.error('Error retrieving user data:', error);
@@ -104,8 +104,11 @@ export class AuthService {
     try {
       const response = await ApiClient.post<AuthResponse>('/auth/register', data);
       
-      // Store token and user data
-      await this.storeToken(response.access_token);
+      // Store token and user data - backend sends 'token' field
+      const token = response.token || response.access_token;
+      if (token) {
+        await this.storeToken(token);
+      }
       await this.storeUserData(response.user);
       
       return response;
@@ -122,8 +125,11 @@ export class AuthService {
     try {
       const response = await ApiClient.post<AuthResponse>('/auth/login', data);
       
-      // Store token and user data
-      await this.storeToken(response.access_token);
+      // Store token and user data - backend sends 'token' field
+      const token = response.token || response.access_token;
+      if (token) {
+        await this.storeToken(token);
+      }
       await this.storeUserData(response.user);
       
       return response;
@@ -139,8 +145,8 @@ export class AuthService {
   static async logout(): Promise<void> {
     try {
       // Clear stored data
-      await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
-      await SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA);
+      await SecureStorage.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
+      await SecureStorage.deleteItemAsync(STORAGE_KEYS.USER_DATA);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -151,7 +157,7 @@ export class AuthService {
    */
   static async markOnboardingCompleted(): Promise<void> {
     try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
+      await SecureStorage.setItemAsync(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
     } catch (error) {
       console.error('Error marking onboarding completed:', error);
     }
@@ -162,7 +168,7 @@ export class AuthService {
    */
   static async hasCompletedOnboarding(): Promise<boolean> {
     try {
-      const completed = await SecureStore.getItemAsync(STORAGE_KEYS.ONBOARDING_COMPLETED);
+      const completed = await SecureStorage.getItemAsync(STORAGE_KEYS.ONBOARDING_COMPLETED);
       return completed === 'true';
     } catch (error) {
       console.error('Error checking onboarding status:', error);
