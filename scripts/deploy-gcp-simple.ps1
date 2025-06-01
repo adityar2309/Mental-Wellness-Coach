@@ -238,7 +238,7 @@ steps:
   args:
   - 'build'
   - '-t'
-  - 'gcr.io/$PROJECT_ID/wellness-backend:latest'
+  - 'gcr.io/$ProjectId/wellness-backend:latest'
   - '-f'
   - 'backend/Dockerfile'
   - '.'
@@ -247,7 +247,7 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args:
   - 'push'
-  - 'gcr.io/$PROJECT_ID/wellness-backend:latest'
+  - 'gcr.io/$ProjectId/wellness-backend:latest'
 
 options:
   machineType: 'E2_HIGHCPU_8'

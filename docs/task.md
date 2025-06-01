@@ -405,6 +405,35 @@ This document outlines the comprehensive development roadmap for the Mental Well
   - Measures response quality and intervention recommendations
   - Provides comprehensive deployment validation report
 
+### December 2024 - Google Cloud Build Docker Deployment Fix ✅
+- **Status**: COMPLETED
+- **Date Added**: June 2025
+- **Completion Date**: June 2025
+- **Description**: Fix Google Cloud Build failure with Docker build step exiting with non-zero status 125
+- **Issues Fixed**:
+  - [x] Fixed Dockerfile context and file path issues for building from root directory ✅
+  - [x] Updated Dockerfile to use `backend/requirements.txt` instead of root `requirements.txt` ✅
+  - [x] Fixed Docker build context to copy `backend/` directory correctly ✅
+  - [x] Changed exposed port from 3000 to 5000 to match Cloud Run deployment expectations ✅
+  - [x] Updated Flask app default port from 3000 to 5000 for consistency ✅
+  - [x] Fixed health check URLs to use correct port (5000) ✅
+  - [x] Updated gunicorn bind address to use port 5000 ✅
+- **Root Cause**: 
+  - Cloud Build runs from root directory but Dockerfile expected to find files in current working directory
+  - Dockerfile tried to copy `requirements.txt` and `.` but needed `backend/requirements.txt` and `backend/`
+  - Port mismatch between Dockerfile (3000), Flask app (3000), and Cloud Run deployment (5000)
+- **Solution**: 
+  - Updated Dockerfile paths to account for build context from root directory
+  - Standardized all components to use port 5000 throughout the deployment pipeline
+- **Skills Required**: Docker, Google Cloud Build, Flask deployment, containerization
+- **Priority**: Critical (blocking deployment)
+- **Estimated Hours**: 1 hour
+- **Actual Hours**: 0.5 hours
+- **Notes**: 
+  - Cloud Build should now successfully build the Docker image without status 125 errors
+  - All port configurations are now consistent across Dockerfile, Flask app, and Cloud Run
+  - Build context properly handles copying backend files from root directory
+
 ---
 
 ## 📋 Epic 3: Cloud Deployment & Production
