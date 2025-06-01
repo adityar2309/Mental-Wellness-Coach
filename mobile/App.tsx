@@ -15,6 +15,7 @@ import ChatScreen from './src/screens/chat/ChatScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import JournalScreen from './src/screens/journal/JournalScreen';
 import JournalEntryScreen from './src/screens/journal/JournalEntryScreen';
+import JournalAnalyticsScreen from './src/screens/journal/JournalAnalyticsScreen';
 
 // Services
 import { AuthService } from './src/services/AuthService';
@@ -30,6 +31,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Journal: undefined;
   JournalEntry: { entryId?: number; isEditing: boolean };
+  JournalAnalytics: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -167,6 +169,14 @@ export default function App() {
           component={JournalEntryScreen}
           options={{ 
             title: 'Journal Entry',
+            headerBackTitleVisible: false 
+          }}
+        />
+        <Stack.Screen 
+          name="JournalAnalytics" 
+          component={JournalAnalyticsScreen}
+          options={{ 
+            title: 'Analytics',
             headerBackTitleVisible: false 
           }}
         />

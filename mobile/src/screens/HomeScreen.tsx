@@ -96,7 +96,10 @@ export default function HomeScreen({ navigation }: Props) {
 
         {/* Features Grid */}
         <View style={styles.featuresGrid}>
-          <TouchableOpacity style={styles.featureCard}>
+          <TouchableOpacity 
+            style={styles.featureCard}
+            onPress={() => navigation.navigate('JournalAnalytics')}
+          >
             <Text style={styles.featureEmoji}>📊</Text>
             <Text style={styles.featureTitle}>Analytics</Text>
           </TouchableOpacity>

@@ -240,9 +240,18 @@ export default function JournalScreen({ navigation }: Props) {
           )}
         </View>
         
-        <TouchableOpacity style={styles.createButton} onPress={handleCreateEntry}>
-          <Text style={styles.createButtonText}>+ New Entry</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.analyticsButton} 
+            onPress={() => navigation.navigate('JournalAnalytics')}
+          >
+            <Text style={styles.analyticsButtonText}>📊 Analytics</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.createButton} onPress={handleCreateEntry}>
+            <Text style={styles.createButtonText}>+ New Entry</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Journal Entries List */}
@@ -452,5 +461,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter-Medium',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  analyticsButton: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  analyticsButtonText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontFamily: 'Inter-Regular',
   },
 }); 
