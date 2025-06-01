@@ -4,7 +4,7 @@
 # =============================================================================
 # Base Stage - Python Runtime
 # =============================================================================
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 # Set Python environment variables
 ENV PYTHONUNBUFFERED=1
@@ -26,7 +26,7 @@ RUN addgroup --gid 1001 --system flask && \
 # =============================================================================
 # Dependencies Stage
 # =============================================================================
-FROM base as dependencies
+FROM base AS dependencies
 
 # Set working directory
 WORKDIR /app
@@ -43,7 +43,7 @@ RUN pip install --upgrade pip && \
 # =============================================================================
 # Development Stage
 # =============================================================================
-FROM dependencies as development
+FROM dependencies AS development
 
 # Copy backend application code
 # Since we're building from root, copy the entire backend directory
@@ -71,7 +71,7 @@ CMD ["python", "app.py"]
 # =============================================================================
 # Production Stage
 # =============================================================================
-FROM dependencies as production
+FROM dependencies AS production
 
 # Copy backend application code
 # Since we're building from root, copy the entire backend directory
