@@ -101,7 +101,10 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.featureTitle}>Analytics</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.featureCard}>
+          <TouchableOpacity 
+            style={styles.featureCard}
+            onPress={() => navigation.navigate('Journal')}
+          >
             <Text style={styles.featureEmoji}>📝</Text>
             <Text style={styles.featureTitle}>Journal</Text>
           </TouchableOpacity>

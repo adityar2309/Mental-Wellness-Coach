@@ -27,20 +27,15 @@ export class SecureStorage {
           localStorage.setItem(`secure_${key}`, value);
         } else {
           console.warn('[SecureStorage] localStorage not available on web');
+          throw new Error('Storage not available on web');
         }
       } else {
         // Use SecureStore for mobile
         if (SecureStore) {
           await SecureStore.setItemAsync(key, value);
         } else {
-          console.warn('[SecureStorage] SecureStore not available, using fallback');
-          // Fallback to AsyncStorage if available
-          try {
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            await AsyncStorage.setItem(`secure_${key}`, value);
-          } catch (e) {
-            console.error('[SecureStorage] No storage method available');
-          }
+          console.error('[SecureStorage] SecureStore not available on native platform');
+          throw new Error('Secure storage not available');
         }
       }
     } catch (error) {
@@ -67,15 +62,8 @@ export class SecureStorage {
         if (SecureStore) {
           return await SecureStore.getItemAsync(key);
         } else {
-          console.warn('[SecureStorage] SecureStore not available, using fallback');
-          // Fallback to AsyncStorage if available
-          try {
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            return await AsyncStorage.getItem(`secure_${key}`);
-          } catch (e) {
-            console.error('[SecureStorage] No storage method available');
-            return null;
-          }
+          console.error('[SecureStorage] SecureStore not available on native platform');
+          return null;
         }
       }
     } catch (error) {
@@ -101,14 +89,8 @@ export class SecureStorage {
         if (SecureStore) {
           await SecureStore.deleteItemAsync(key);
         } else {
-          console.warn('[SecureStorage] SecureStore not available, using fallback');
-          // Fallback to AsyncStorage if available
-          try {
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            await AsyncStorage.removeItem(`secure_${key}`);
-          } catch (e) {
-            console.error('[SecureStorage] No storage method available');
-          }
+          console.error('[SecureStorage] SecureStore not available on native platform');
+          throw new Error('Secure storage not available');
         }
       }
     } catch (error) {
@@ -137,7 +119,7 @@ export class SecureStorage {
     } else if (SecureStore) {
       return 'SecureStore';
     } else {
-      return 'AsyncStorage';
+      return 'unavailable';
     }
   }
 }

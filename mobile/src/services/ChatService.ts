@@ -65,7 +65,7 @@ export class ChatService {
    */
   async sendMessage(messageData: SendMessageRequest): Promise<ChatResponse> {
     try {
-      const response = await ApiClient.post('/conversation/chat', messageData);
+      const response = await ApiClient.post('/conversations/chat', messageData);
       return response;
     } catch (error: any) {
       console.error('[ChatService] Failed to send message:', error);
@@ -84,7 +84,7 @@ export class ChatService {
    */
   async getConversationHistory(conversationId: string): Promise<ConversationHistory> {
     try {
-      const response = await ApiClient.get(`/conversation/history/${conversationId}`);
+      const response = await ApiClient.get(`/conversations/history/${conversationId}`);
       return response;
     } catch (error: any) {
       console.error('[ChatService] Failed to get conversation history:', error);
@@ -100,7 +100,7 @@ export class ChatService {
    */
   async getUserConversations(): Promise<ConversationPreview[]> {
     try {
-      const response = await ApiClient.get('/conversation/conversations');
+      const response = await ApiClient.get('/conversations/conversations');
       return response.conversations || [];
     } catch (error: any) {
       console.error('[ChatService] Failed to get user conversations:', error);
@@ -116,7 +116,7 @@ export class ChatService {
    */
   async startNewConversation(): Promise<{ conversation_id: string }> {
     try {
-      const response = await ApiClient.post('/conversation/start', {});
+      const response = await ApiClient.post('/conversations/start', {});
       return response;
     } catch (error: any) {
       console.error('[ChatService] Failed to start new conversation:', error);

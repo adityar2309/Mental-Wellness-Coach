@@ -13,6 +13,8 @@ import HomeScreen from './src/screens/HomeScreen';
 import MoodCheckInScreen from './src/screens/mood/MoodCheckInScreen';
 import ChatScreen from './src/screens/chat/ChatScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import JournalScreen from './src/screens/journal/JournalScreen';
+import JournalEntryScreen from './src/screens/journal/JournalEntryScreen';
 
 // Services
 import { AuthService } from './src/services/AuthService';
@@ -26,6 +28,8 @@ export type RootStackParamList = {
   MoodCheckIn: undefined;
   Chat: undefined;
   Profile: undefined;
+  Journal: undefined;
+  JournalEntry: { entryId?: number; isEditing: boolean };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -152,6 +156,19 @@ export default function App() {
           name="Profile" 
           component={ProfileScreen}
           options={{ title: 'Your Profile' }}
+        />
+        <Stack.Screen 
+          name="Journal" 
+          component={JournalScreen}
+          options={{ title: 'Your Journal' }}
+        />
+        <Stack.Screen 
+          name="JournalEntry" 
+          component={JournalEntryScreen}
+          options={{ 
+            title: 'Journal Entry',
+            headerBackTitleVisible: false 
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
