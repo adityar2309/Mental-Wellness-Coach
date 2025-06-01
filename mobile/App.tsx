@@ -18,6 +18,7 @@ import JournalEntryScreen from './src/screens/journal/JournalEntryScreen';
 import JournalAnalyticsScreen from './src/screens/journal/JournalAnalyticsScreen';
 import MindfulnessScreen from './src/screens/mindfulness/MindfulnessScreen';
 import BreathingExerciseScreen from './src/screens/mindfulness/BreathingExerciseScreen';
+import CrisisHelpScreen from './src/screens/crisis/CrisisHelpScreen';
 
 // Services
 import { AuthService } from './src/services/AuthService';
@@ -36,6 +37,7 @@ export type RootStackParamList = {
   JournalAnalytics: undefined;
   Mindfulness: undefined;
   BreathingExercise: undefined;
+  CrisisHelp: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -193,6 +195,11 @@ export default function App() {
           name="BreathingExercise" 
           component={BreathingExerciseScreen}
           options={{ title: 'Breathing Exercise' }}
+        />
+        <Stack.Screen 
+          name="CrisisHelp" 
+          component={CrisisHelpScreen}
+          options={{ title: 'Crisis Help' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
