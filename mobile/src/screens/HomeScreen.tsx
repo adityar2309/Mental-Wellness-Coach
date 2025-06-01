@@ -112,7 +112,10 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={styles.featureTitle}>Journal</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.featureCard}>
+          <TouchableOpacity 
+            style={styles.featureCard}
+            onPress={() => navigation.navigate('Mindfulness')}
+          >
             <Text style={styles.featureEmoji}>🧘</Text>
             <Text style={styles.featureTitle}>Mindfulness</Text>
           </TouchableOpacity>

@@ -16,6 +16,8 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import JournalScreen from './src/screens/journal/JournalScreen';
 import JournalEntryScreen from './src/screens/journal/JournalEntryScreen';
 import JournalAnalyticsScreen from './src/screens/journal/JournalAnalyticsScreen';
+import MindfulnessScreen from './src/screens/mindfulness/MindfulnessScreen';
+import BreathingExerciseScreen from './src/screens/mindfulness/BreathingExerciseScreen';
 
 // Services
 import { AuthService } from './src/services/AuthService';
@@ -32,6 +34,8 @@ export type RootStackParamList = {
   Journal: undefined;
   JournalEntry: { entryId?: number; isEditing: boolean };
   JournalAnalytics: undefined;
+  Mindfulness: undefined;
+  BreathingExercise: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -179,6 +183,16 @@ export default function App() {
             title: 'Analytics',
             headerBackTitleVisible: false 
           }}
+        />
+        <Stack.Screen 
+          name="Mindfulness" 
+          component={MindfulnessScreen}
+          options={{ title: 'Mindfulness' }}
+        />
+        <Stack.Screen 
+          name="BreathingExercise" 
+          component={BreathingExerciseScreen}
+          options={{ title: 'Breathing Exercise' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
