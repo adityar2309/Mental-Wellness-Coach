@@ -168,15 +168,28 @@ export default function JournalEntryScreen({ navigation, route }: Props) {
       if (isCreateMode) {
         // Create new entry
         await JournalService.createEntry(entryData as CreateJournalEntryRequest);
-        Alert.alert('Success', 'Journal entry created successfully!', [
-          { text: 'OK', onPress: () => navigation.navigate('Journal') }
-        ]);
+        console.log('[JournalEntryScreen] Entry created successfully, navigating to Journal');
+        
+        // Navigate immediately after successful creation
+        navigation.navigate('Journal');
+        
+        // Show success message after navigation (non-blocking)
+        setTimeout(() => {
+          Alert.alert('Success', 'Journal entry created successfully!');
+        }, 100);
+        
       } else if (isEditMode && entryId) {
         // Update existing entry
         await JournalService.updateEntry(entryId, entryData as UpdateJournalEntryRequest);
-        Alert.alert('Success', 'Journal entry updated successfully!', [
-          { text: 'OK', onPress: () => navigation.navigate('Journal') }
-        ]);
+        console.log('[JournalEntryScreen] Entry updated successfully, navigating to Journal');
+        
+        // Navigate immediately after successful update
+        navigation.navigate('Journal');
+        
+        // Show success message after navigation (non-blocking)
+        setTimeout(() => {
+          Alert.alert('Success', 'Journal entry updated successfully!');
+        }, 100);
       }
     } catch (error: any) {
       console.error('Failed to save journal entry:', error);
