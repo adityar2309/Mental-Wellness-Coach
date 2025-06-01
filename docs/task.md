@@ -164,6 +164,24 @@ This document outlines the comprehensive development roadmap for the Mental Well
   - Configured proper API base URL (https://api.asi1.ai/v1) and model (asi1-mini)
   - Server now initializes ASI:One LLM successfully instead of falling back to mock responses
 
+### December 2024 - Chat with AI Feature Implementation 🤖
+- **Status**: IN PROGRESS
+- **Date Added**: December 2024
+- **Description**: Implement comprehensive chat with AI feature for both frontend and backend
+- **Tasks**:
+  - [ ] Enhance backend conversation routes with better AI responses
+  - [ ] Create ChatService for mobile app API communication
+  - [ ] Build comprehensive ChatScreen UI with message bubbles, typing indicators
+  - [ ] Implement real-time message handling and conversation persistence
+  - [ ] Add conversation history management
+  - [ ] Create crisis detection UI feedback
+  - [ ] Implement proper error handling and offline support
+  - [ ] Add comprehensive unit tests for chat functionality
+  - [ ] Update documentation and README
+- **Skills Required**: React Native, TypeScript, Python Flask, UI/UX Design, Real-time updates
+- **Priority**: High
+- **Estimated Hours**: 20 hours
+
 ---
 
 ## 📋 Epic 3: Mental Health Features
