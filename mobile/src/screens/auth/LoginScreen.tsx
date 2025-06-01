@@ -145,7 +145,7 @@ export default function LoginScreen({ navigation }: Props) {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
+                <ActivityIndicator color="#ffffff" size="small" testID="activity-indicator" />
               ) : (
                 <Text style={styles.loginButtonText}>Sign In</Text>
               )}

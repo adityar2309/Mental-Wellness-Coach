@@ -201,7 +201,7 @@ export default function RegisterScreen({ navigation }: Props) {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
+                <ActivityIndicator color="#ffffff" size="small" testID="activity-indicator" />
               ) : (
                 <Text style={styles.registerButtonText}>Create Account</Text>
               )}
