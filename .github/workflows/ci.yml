@@ -1,0 +1,389 @@
+name: Mental Wellness Coach CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  DATABASE_URL: postgresql://wellness_user:wellness_pass@localhost:5432/wellness_coach_test
+  REDIS_URL: redis://localhost:6379
+  JWT_SECRET: test-jwt-secret-key
+  ENCRYPTION_KEY: test_32_char_encryption_key_here
+  ASI_ONE_API_KEY: test-api-key
+  FETCH_AI_AGENT_KEY: test-agent-key
+
+jobs:
+  # =======================
+  # Code Quality & Security
+  # =======================
+  code-quality:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black flake8 isort bandit safety
+        
+    - name: Python code formatting (Black)
+      run: black --check backend/
+      
+    - name: Python linting (Flake8)
+      run: flake8 backend/ --max-line-length=100 --exclude=backend/__pycache__,backend/migrations
+      
+    - name: Python import sorting (isort)
+      run: isort --check-only backend/
+      
+    - name: Python security check (Bandit)
+      run: bandit -r backend/ -f json -o bandit-report.json || true
+      
+    - name: Python dependency security (Safety)
+      run: safety check --json --output safety-report.json || true
+      
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # =======================
+  # Backend Testing
+  # =======================
+  backend-tests:
+    name: Backend Tests (Python/Flask)
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: wellness_user
+          POSTGRES_PASSWORD: wellness_pass
+          POSTGRES_DB: wellness_coach_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-flask
+        
+    - name: Run database migrations
+      run: |
+        cd backend
+        python -c "from app import create_app; from models import db; app = create_app(); app.app_context().push(); db.create_all()"
+        
+    - name: Run backend tests
+      run: |
+        cd backend
+        pytest --cov=. --cov-report=xml --cov-report=html --verbose
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-test-results
+        path: |
+          backend/htmlcov/
+          backend/coverage.xml
+
+  # =======================
+  # Mobile App Testing
+  # =======================
+  mobile-tests:
+    name: Mobile Tests (React Native)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: mobile/package-lock.json
+        
+    - name: Install mobile dependencies
+      run: |
+        cd mobile
+        npm ci
+        
+    - name: Run mobile tests
+      run: |
+        cd mobile
+        npm run test -- --coverage --watchAll=false
+        
+    - name: Run mobile linting
+      run: |
+        cd mobile
+        npm run lint
+        
+    - name: Upload mobile coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: mobile/coverage/lcov.info
+        flags: mobile
+        name: mobile-coverage
+
+  # =======================
+  # Integration Testing
+  # =======================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend-tests]
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: wellness_user
+          POSTGRES_PASSWORD: wellness_pass
+          POSTGRES_DB: wellness_coach_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-flask httpx
+        
+    - name: Setup test database
+      run: |
+        cd backend
+        python -c "from app import create_app; from models import db; app = create_app(); app.app_context().push(); db.create_all()"
+        
+    - name: Run integration tests
+      run: |
+        pytest tests/integration/ --verbose
+
+  # =======================
+  # Docker Build & Test
+  # =======================
+  docker-build:
+    name: Docker Build & Test
+    runs-on: ubuntu-latest
+    needs: [code-quality, backend-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build backend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        target: production
+        tags: mental-wellness-backend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Test Docker image
+      run: |
+        docker run -d --name test-backend \
+          -p 3000:3000 \
+          -e DATABASE_URL="postgresql://wellness_user:wellness_pass@host.docker.internal:5432/wellness_coach_test" \
+          mental-wellness-backend:test
+        
+        sleep 10
+        
+        # Test health endpoint
+        curl -f http://localhost:3000/health || exit 1
+        
+        docker stop test-backend
+        docker rm test-backend
+
+  # =======================
+  # Security Scanning
+  # =======================
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # =======================
+  # Performance Testing
+  # =======================
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: github.ref == 'refs/heads/main'
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: wellness_user
+          POSTGRES_PASSWORD: wellness_pass
+          POSTGRES_DB: wellness_coach_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install locust
+        
+    - name: Start Flask application
+      run: |
+        cd backend
+        python app.py &
+        sleep 10
+        
+    - name: Run performance tests
+      run: |
+        locust -f tests/performance/locustfile.py --headless -u 10 -r 2 -t 60s --host http://localhost:3000
+
+  # =======================
+  # Deployment (Production)
+  # =======================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker-build, security-scan, performance-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production environment"
+        echo "This would trigger production deployment"
+        # Add actual deployment commands here
+        
+    - name: Health check production
+      run: |
+        echo "🏥 Performing production health check"
+        # Add production health check commands here
+        
+    - name: Notify deployment success
+      run: |
+        echo "✅ Production deployment successful"
+        # Add notification commands here 

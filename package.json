@@ -1,0 +1,67 @@
+{
+  "name": "mental-wellness-coach",
+  "version": "1.0.0",
+  "description": "A privacy-first AI agent for daily emotional support and mental health maintenance",
+  "private": true,
+  "workspaces": [
+    "mobile"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:mobile && npm run install:python",
+    "install:mobile": "cd mobile && npm install",
+    "install:python": "pip install -r requirements.txt",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:mobile\"",
+    "dev:backend": "python run-flask.py",
+    "dev:mobile": "cd mobile && npm run dev",
+    "dev:ios": "cd mobile && npm run ios",
+    "dev:android": "cd mobile && npm run android",
+    "build": "npm run build:mobile",
+    "build:mobile": "cd mobile && npm run build",
+    "test": "npm run test:backend && npm run test:mobile",
+    "test:backend": "cd backend && pytest",
+    "test:mobile": "cd mobile && npm run test",
+    "test:e2e": "pytest tests/e2e/",
+    "lint": "npm run lint:backend && npm run lint:mobile",
+    "lint:backend": "cd backend && flake8 . && black --check .",
+    "lint:mobile": "cd mobile && npm run lint",
+    "lint:fix": "npm run lint:fix:backend && npm run lint:fix:mobile",
+    "lint:fix:backend": "cd backend && black . && isort .",
+    "lint:fix:mobile": "cd mobile && npm run lint:fix",
+    "db:init": "cd backend && flask db init",
+    "db:migrate": "cd backend && flask db migrate",
+    "db:upgrade": "cd backend && flask db upgrade",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "clean": "npm run clean:mobile && npm run clean:python",
+    "clean:mobile": "cd mobile && npm run clean",
+    "clean:python": "find backend -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0",
+    "python": ">=3.8.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/mental-wellness-coach.git"
+  },
+  "keywords": [
+    "mental-health",
+    "ai-agent",
+    "wellness",
+    "privacy",
+    "flask",
+    "python",
+    "asi-one",
+    "fetch-ai",
+    "uagents",
+    "react-native"
+  ],
+  "author": "Mental Wellness Coach Team",
+  "license": "MIT"
+} 

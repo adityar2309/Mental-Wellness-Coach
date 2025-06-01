@@ -1,0 +1,27 @@
+# Requirements for Mental Wellness Coach - Feature Testing Script
+# Install with: pip install -r test_requirements.txt
+
+# HTTP requests for API testing
+requests>=2.31.0
+
+# Colored terminal output for better test result visualization
+colorama>=0.4.6
+
+# Date and time handling (included in Python standard library, but listing for clarity)
+# datetime - standard library
+
+# JSON handling (included in Python standard library)
+# json - standard library
+
+# System and OS utilities (included in Python standard library)
+# sys - standard library
+# os - standard library
+
+# Time utilities (included in Python standard library)
+# time - standard library
+
+# Async support (included in Python 3.7+)
+# asyncio - standard library
+
+# Type hints (included in Python 3.5+)
+# typing - standard library 
