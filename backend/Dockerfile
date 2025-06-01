@@ -31,8 +31,9 @@ FROM base as dependencies
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy backend requirements first for better caching
+# Note: This Dockerfile is built from the root directory, so we need backend/requirements.txt
+COPY backend/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \
@@ -43,8 +44,9 @@ RUN pip install --upgrade pip && \
 # =============================================================================
 FROM dependencies as development
 
-# Copy application code
-COPY --chown=flask:flask . .
+# Copy backend application code
+# Since we're building from root, copy the entire backend directory
+COPY --chown=flask:flask backend/ .
 
 # Create necessary directories
 RUN mkdir -p /app/logs && chown -R flask:flask /app/logs
@@ -52,12 +54,12 @@ RUN mkdir -p /app/logs && chown -R flask:flask /app/logs
 # Switch to application user
 USER flask
 
-# Expose port
-EXPOSE 3000
+# Expose port 5000 (to match Cloud Run deployment)
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Start development server
 CMD ["python", "app.py"]
@@ -67,8 +69,9 @@ CMD ["python", "app.py"]
 # =============================================================================
 FROM dependencies as production
 
-# Copy application code
-COPY --chown=flask:flask . .
+# Copy backend application code
+# Since we're building from root, copy the entire backend directory
+COPY --chown=flask:flask backend/ .
 
 # Create necessary directories
 RUN mkdir -p /app/logs && chown -R flask:flask /app/logs
@@ -79,15 +82,15 @@ RUN rm -rf tests/ *.md .git*
 # Switch to application user
 USER flask
 
-# Expose port
-EXPOSE 3000
+# Expose port 5000 (to match Cloud Run deployment)
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Start production server with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:3000", "--workers", "4", "--timeout", "30", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "30", "app:app"]
 
 # =============================================================================
 # Labels for metadata
