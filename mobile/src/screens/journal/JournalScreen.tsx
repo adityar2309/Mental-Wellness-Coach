@@ -11,6 +11,7 @@ import {
   TextInput,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../../../App';
 import { JournalService, JournalEntry, JournalEntriesResponse } from '../../services/JournalService';
 
@@ -130,6 +131,14 @@ export default function JournalScreen({ navigation }: Props) {
       setLoadingMore(false);
     }
   }, []);
+
+  // Refresh entries when screen comes into focus (e.g., after creating a new entry)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[JournalScreen] Screen focused, refreshing entries');
+      loadEntries(1, searchQuery, true);
+    }, [searchQuery, loadEntries])
+  );
 
   useEffect(() => {
     loadEntries(1, searchQuery);
