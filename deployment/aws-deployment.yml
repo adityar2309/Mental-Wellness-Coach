@@ -1,0 +1,462 @@
+# Mental Wellness Coach - AWS ECS Deployment Configuration
+# 
+# This configuration deploys the application to AWS using:
+# - ECS (Elastic Container Service) for container orchestration
+# - RDS PostgreSQL for database
+# - ElastiCache Redis for caching
+# - Application Load Balancer for traffic distribution
+# - CloudWatch for monitoring and logging
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wellness-aws-config
+  namespace: default
+data:
+  # AWS ECS Task Definition for Backend
+  task-definition.json: |
+    {
+      "family": "wellness-backend",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "1024",
+      "memory": "2048",
+      "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+      "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+      "containerDefinitions": [
+        {
+          "name": "wellness-backend",
+          "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/wellness-backend:latest",
+          "essential": true,
+          "portMappings": [
+            {
+              "containerPort": 5000,
+              "protocol": "tcp"
+            }
+          ],
+          "environment": [
+            {
+              "name": "FLASK_ENV",
+              "value": "production"
+            },
+            {
+              "name": "DATABASE_URL",
+              "value": "postgresql://wellness_user:POSTGRES_PASSWORD@wellness-postgres.cluster-xyz.region.rds.amazonaws.com:5432/wellness_coach"
+            },
+            {
+              "name": "REDIS_URL", 
+              "value": "redis://wellness-redis.cache.amazonaws.com:6379"
+            }
+          ],
+          "secrets": [
+            {
+              "name": "ASI_ONE_API_KEY",
+              "valueFrom": "arn:aws:secretsmanager:region:account:secret:wellness/asi-api-key"
+            },
+            {
+              "name": "JWT_SECRET",
+              "valueFrom": "arn:aws:secretsmanager:region:account:secret:wellness/jwt-secret"
+            },
+            {
+              "name": "ENCRYPTION_KEY",
+              "valueFrom": "arn:aws:secretsmanager:region:account:secret:wellness/encryption-key"
+            }
+          ],
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-group": "/ecs/wellness-backend",
+              "awslogs-region": "us-east-1",
+              "awslogs-stream-prefix": "ecs"
+            }
+          },
+          "healthCheck": {
+            "command": ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"],
+            "interval": 30,
+            "timeout": 5,
+            "retries": 3,
+            "startPeriod": 60
+          }
+        }
+      ]
+    }
+
+  # AWS ECS Service Configuration
+  service-definition.json: |
+    {
+      "serviceName": "wellness-backend-service",
+      "cluster": "wellness-cluster",
+      "taskDefinition": "wellness-backend",
+      "desiredCount": 2,
+      "launchType": "FARGATE",
+      "networkConfiguration": {
+        "awsvpcConfiguration": {
+          "subnets": ["subnet-12345", "subnet-67890"],
+          "securityGroups": ["sg-wellness-backend"],
+          "assignPublicIp": "ENABLED"
+        }
+      },
+      "loadBalancers": [
+        {
+          "targetGroupArn": "arn:aws:elasticloadbalancing:region:account:targetgroup/wellness-backend-tg/xyz",
+          "containerName": "wellness-backend",
+          "containerPort": 5000
+        }
+      ],
+      "serviceTags": [
+        {
+          "key": "Environment",
+          "value": "production"
+        },
+        {
+          "key": "Application",
+          "value": "mental-wellness-coach"
+        }
+      ]
+    }
+
+  # CloudFormation Template for Infrastructure
+  cloudformation-template.yml: |
+    AWSTemplateFormatVersion: '2010-09-09'
+    Description: 'Mental Wellness Coach - AWS Infrastructure'
+    
+    Parameters:
+      Environment:
+        Type: String
+        Default: production
+        AllowedValues: [development, staging, production]
+      VpcCIDR:
+        Type: String
+        Default: 10.0.0.0/16
+        Description: CIDR block for VPC
+    
+    Resources:
+      # VPC and Networking
+      VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+          CidrBlock: !Ref VpcCIDR
+          EnableDnsHostnames: true
+          EnableDnsSupport: true
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-vpc-${Environment}
+      
+      # Internet Gateway
+      InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-igw-${Environment}
+      
+      InternetGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+          InternetGatewayId: !Ref InternetGateway
+          VpcId: !Ref VPC
+      
+      # Public Subnets
+      PublicSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [0, !GetAZs '']
+          CidrBlock: 10.0.1.0/24
+          MapPublicIpOnLaunch: true
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-public-subnet-1-${Environment}
+      
+      PublicSubnet2:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [1, !GetAZs '']
+          CidrBlock: 10.0.2.0/24
+          MapPublicIpOnLaunch: true
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-public-subnet-2-${Environment}
+      
+      # Private Subnets for Database
+      PrivateSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [0, !GetAZs '']
+          CidrBlock: 10.0.3.0/24
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-private-subnet-1-${Environment}
+      
+      PrivateSubnet2:
+        Type: AWS::EC2::Subnet
+        Properties:
+          VpcId: !Ref VPC
+          AvailabilityZone: !Select [1, !GetAZs '']
+          CidrBlock: 10.0.4.0/24
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-private-subnet-2-${Environment}
+      
+      # Route Tables
+      PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+          VpcId: !Ref VPC
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-public-rt-${Environment}
+      
+      DefaultPublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          DestinationCidrBlock: 0.0.0.0/0
+          GatewayId: !Ref InternetGateway
+      
+      PublicSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          SubnetId: !Ref PublicSubnet1
+      
+      PublicSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+          RouteTableId: !Ref PublicRouteTable
+          SubnetId: !Ref PublicSubnet2
+      
+      # Security Groups
+      LoadBalancerSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupDescription: Security group for Application Load Balancer
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: 80
+              ToPort: 80
+              CidrIp: 0.0.0.0/0
+            - IpProtocol: tcp
+              FromPort: 443
+              ToPort: 443
+              CidrIp: 0.0.0.0/0
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-alb-sg-${Environment}
+      
+      BackendSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupDescription: Security group for backend containers
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: 5000
+              ToPort: 5000
+              SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-backend-sg-${Environment}
+      
+      DatabaseSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupDescription: Security group for RDS database
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: 5432
+              ToPort: 5432
+              SourceSecurityGroupId: !Ref BackendSecurityGroup
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-db-sg-${Environment}
+      
+      # RDS PostgreSQL Database
+      DBSubnetGroup:
+        Type: AWS::RDS::DBSubnetGroup
+        Properties:
+          DBSubnetGroupDescription: Subnet group for RDS database
+          SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-db-subnet-group-${Environment}
+      
+      DatabaseInstance:
+        Type: AWS::RDS::DBInstance
+        Properties:
+          DBInstanceIdentifier: !Sub wellness-postgres-${Environment}
+          DBInstanceClass: db.t3.micro
+          Engine: postgres
+          EngineVersion: '15.4'
+          MasterUsername: wellness_user
+          MasterUserPassword: !Ref DatabasePassword
+          AllocatedStorage: 20
+          StorageType: gp2
+          VPCSecurityGroups:
+            - !Ref DatabaseSecurityGroup
+          DBSubnetGroupName: !Ref DBSubnetGroup
+          BackupRetentionPeriod: 7
+          DeletionProtection: true
+          StorageEncrypted: true
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-postgres-${Environment}
+      
+      # ElastiCache Redis
+      RedisSubnetGroup:
+        Type: AWS::ElastiCache::SubnetGroup
+        Properties:
+          Description: Subnet group for Redis cluster
+          SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+      
+      RedisCluster:
+        Type: AWS::ElastiCache::CacheCluster
+        Properties:
+          CacheClusterName: !Sub wellness-redis-${Environment}
+          CacheNodeType: cache.t3.micro
+          Engine: redis
+          NumCacheNodes: 1
+          VpcSecurityGroupIds:
+            - !Ref RedisSecurityGroup
+          CacheSubnetGroupName: !Ref RedisSubnetGroup
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-redis-${Environment}
+      
+      RedisSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+          GroupDescription: Security group for Redis cluster
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+            - IpProtocol: tcp
+              FromPort: 6379
+              ToPort: 6379
+              SourceSecurityGroupId: !Ref BackendSecurityGroup
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-redis-sg-${Environment}
+      
+      # Application Load Balancer
+      ApplicationLoadBalancer:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+          Name: !Sub wellness-alb-${Environment}
+          Scheme: internet-facing
+          Type: application
+          Subnets:
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+          SecurityGroups:
+            - !Ref LoadBalancerSecurityGroup
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-alb-${Environment}
+      
+      # ECS Cluster
+      ECSCluster:
+        Type: AWS::ECS::Cluster
+        Properties:
+          ClusterName: !Sub wellness-cluster-${Environment}
+          CapacityProviders:
+            - FARGATE
+          Tags:
+            - Key: Name
+              Value: !Sub wellness-cluster-${Environment}
+    
+    Outputs:
+      VPCId:
+        Description: VPC ID
+        Value: !Ref VPC
+        Export:
+          Name: !Sub wellness-vpc-id-${Environment}
+      
+      DatabaseEndpoint:
+        Description: RDS PostgreSQL endpoint
+        Value: !GetAtt DatabaseInstance.Endpoint.Address
+        Export:
+          Name: !Sub wellness-db-endpoint-${Environment}
+      
+      RedisEndpoint:
+        Description: ElastiCache Redis endpoint
+        Value: !GetAtt RedisCluster.RedisEndpoint.Address
+        Export:
+          Name: !Sub wellness-redis-endpoint-${Environment}
+      
+      LoadBalancerDNS:
+        Description: Application Load Balancer DNS name
+        Value: !GetAtt ApplicationLoadBalancer.DNSName
+        Export:
+          Name: !Sub wellness-alb-dns-${Environment}
+
+  # Deployment Script
+  deploy.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Mental Wellness Coach - AWS Deployment Script
+    
+    ENVIRONMENT=${1:-production}
+    AWS_REGION=${2:-us-east-1}
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    
+    echo "Deploying Mental Wellness Coach to AWS..."
+    echo "Environment: $ENVIRONMENT"
+    echo "Region: $AWS_REGION"
+    echo "Account: $AWS_ACCOUNT_ID"
+    
+    # Build and push Docker images to ECR
+    echo "Building and pushing Docker images..."
+    
+    # Create ECR repositories if they don't exist
+    aws ecr describe-repositories --repository-names wellness-backend --region $AWS_REGION || \
+      aws ecr create-repository --repository-name wellness-backend --region $AWS_REGION
+    
+    # Get ECR login
+    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+    
+    # Build and push backend image
+    docker build -t wellness-backend:latest -f backend/Dockerfile .
+    docker tag wellness-backend:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wellness-backend:latest
+    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/wellness-backend:latest
+    
+    # Deploy CloudFormation stack
+    echo "Deploying CloudFormation infrastructure..."
+    aws cloudformation deploy \
+      --template-file cloudformation-template.yml \
+      --stack-name wellness-infrastructure-$ENVIRONMENT \
+      --parameter-overrides Environment=$ENVIRONMENT \
+      --capabilities CAPABILITY_IAM \
+      --region $AWS_REGION
+    
+    # Register task definition
+    echo "Registering ECS task definition..."
+    # Update task definition with actual account ID and region
+    sed -i "s/ACCOUNT_ID/$AWS_ACCOUNT_ID/g" task-definition.json
+    sed -i "s/REGION/$AWS_REGION/g" task-definition.json
+    
+    aws ecs register-task-definition \
+      --cli-input-json file://task-definition.json \
+      --region $AWS_REGION
+    
+    # Create ECS service
+    echo "Creating ECS service..."
+    # Update service definition with actual values
+    sed -i "s/ACCOUNT_ID/$AWS_ACCOUNT_ID/g" service-definition.json
+    sed -i "s/REGION/$AWS_REGION/g" service-definition.json
+    
+    aws ecs create-service \
+      --cli-input-json file://service-definition.json \
+      --region $AWS_REGION
+    
+    echo "Deployment complete!"
+    echo "Application will be available at the Load Balancer DNS name shown in CloudFormation outputs." 

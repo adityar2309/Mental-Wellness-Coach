@@ -1,0 +1,580 @@
+# Mental Wellness Coach - Google Cloud Platform Deployment Configuration
+#
+# This configuration deploys the application to GCP using:
+# - Cloud Run for serverless container deployment
+# - Cloud SQL for PostgreSQL database
+# - Cloud Memorystore for Redis caching
+# - Cloud Build for CI/CD
+# - Secret Manager for secure configuration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wellness-gcp-config
+  namespace: default
+data:
+  # Cloud Run Service Configuration
+  cloudrun-service.yml: |
+    apiVersion: serving.knative.dev/v1
+    kind: Service
+    metadata:
+      name: wellness-backend
+      annotations:
+        run.googleapis.com/ingress: all
+        run.googleapis.com/execution-environment: gen2
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "1"
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      template:
+        metadata:
+          annotations:
+            run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:wellness-postgres
+            run.googleapis.com/vpc-access-connector: wellness-vpc-connector
+            run.googleapis.com/vpc-access-egress: all-traffic
+        spec:
+          containerConcurrency: 100
+          timeoutSeconds: 300
+          serviceAccountName: wellness-cloudrun-sa@PROJECT_ID.iam.gserviceaccount.com
+          containers:
+          - image: gcr.io/PROJECT_ID/wellness-backend:latest
+            ports:
+            - containerPort: 5000
+            env:
+            - name: FLASK_ENV
+              value: "production"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: redis-url
+                  key: url
+            - name: ASI_ONE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: asi-api-key
+                  key: key
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: secret
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: encryption-key
+                  key: key
+            resources:
+              limits:
+                cpu: "2"
+                memory: "4Gi"
+              requests:
+                cpu: "1"
+                memory: "2Gi"
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 5000
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 3
+            readinessProbe:
+              httpGet:
+                path: /health
+                port: 5000
+              initialDelaySeconds: 10
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+
+  # Cloud Build Configuration for CI/CD
+  cloudbuild.yml: |
+    steps:
+    # Build the container image
+    - name: 'gcr.io/cloud-builders/docker'
+      args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/wellness-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/wellness-backend:latest'
+      - '-f'
+      - 'backend/Dockerfile'
+      - '.'
+    
+    # Push the container image to Container Registry
+    - name: 'gcr.io/cloud-builders/docker'
+      args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/wellness-backend:$COMMIT_SHA'
+    
+    - name: 'gcr.io/cloud-builders/docker'
+      args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/wellness-backend:latest'
+    
+    # Run database migrations
+    - name: 'gcr.io/$PROJECT_ID/wellness-backend:latest'
+      entrypoint: 'bash'
+      args:
+      - '-c'
+      - |
+        export DATABASE_URL=$$DATABASE_URL
+        cd backend && flask db upgrade
+      secretEnv: ['DATABASE_URL']
+      env:
+      - 'FLASK_APP=app.py'
+    
+    # Deploy to Cloud Run
+    - name: 'gcr.io/cloud-builders/gcloud'
+      args:
+      - 'run'
+      - 'deploy'
+      - 'wellness-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/wellness-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-cloudsql-instances'
+      - '$PROJECT_ID:us-central1:wellness-postgres'
+      - '--vpc-connector'
+      - 'wellness-vpc-connector'
+      - '--vpc-egress'
+      - 'all-traffic'
+      - '--memory'
+      - '4Gi'
+      - '--cpu'
+      - '2'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '1'
+      - '--port'
+      - '5000'
+      - '--timeout'
+      - '300'
+      - '--concurrency'
+      - '100'
+      - '--set-env-vars'
+      - 'FLASK_ENV=production'
+      - '--update-secrets'
+      - 'DATABASE_URL=database-url:latest,REDIS_URL=redis-url:latest,ASI_ONE_API_KEY=asi-api-key:latest,JWT_SECRET=jwt-secret:latest,ENCRYPTION_KEY=encryption-key:latest'
+    
+    availableSecrets:
+      secretManager:
+      - versionName: projects/$PROJECT_ID/secrets/database-url/versions/latest
+        env: 'DATABASE_URL'
+    
+    options:
+      machineType: 'E2_HIGHCPU_8'
+      logging: CLOUD_LOGGING_ONLY
+
+  # Terraform Infrastructure as Code
+  main.tf: |
+    # Mental Wellness Coach - Google Cloud Platform Infrastructure
+    
+    terraform {
+      required_version = ">= 1.0"
+      required_providers {
+        google = {
+          source  = "hashicorp/google"
+          version = "~> 5.0"
+        }
+        google-beta = {
+          source  = "hashicorp/google-beta"
+          version = "~> 5.0"
+        }
+      }
+      
+      backend "gcs" {
+        bucket = "wellness-terraform-state"
+        prefix = "terraform/state"
+      }
+    }
+    
+    # Variables
+    variable "project_id" {
+      description = "GCP Project ID"
+      type        = string
+    }
+    
+    variable "region" {
+      description = "GCP Region"
+      type        = string
+      default     = "us-central1"
+    }
+    
+    variable "environment" {
+      description = "Environment (dev, staging, prod)"
+      type        = string
+      default     = "prod"
+    }
+    
+    # Provider Configuration
+    provider "google" {
+      project = var.project_id
+      region  = var.region
+    }
+    
+    provider "google-beta" {
+      project = var.project_id
+      region  = var.region
+    }
+    
+    # Enable required APIs
+    resource "google_project_service" "required_apis" {
+      for_each = toset([
+        "run.googleapis.com",
+        "sqladmin.googleapis.com",
+        "vpcaccess.googleapis.com",
+        "redis.googleapis.com",
+        "secretmanager.googleapis.com",
+        "cloudbuild.googleapis.com",
+        "monitoring.googleapis.com",
+        "logging.googleapis.com"
+      ])
+      
+      service = each.key
+      disable_on_destroy = false
+    }
+    
+    # VPC Network
+    resource "google_compute_network" "wellness_vpc" {
+      name                    = "wellness-vpc-${var.environment}"
+      auto_create_subnetworks = false
+      depends_on              = [google_project_service.required_apis]
+    }
+    
+    # VPC Subnet
+    resource "google_compute_subnetwork" "wellness_subnet" {
+      name          = "wellness-subnet-${var.environment}"
+      ip_cidr_range = "10.0.0.0/24"
+      region        = var.region
+      network       = google_compute_network.wellness_vpc.id
+    }
+    
+    # VPC Access Connector for Cloud Run
+    resource "google_vpc_access_connector" "wellness_connector" {
+      provider = google-beta
+      name     = "wellness-vpc-connector"
+      region   = var.region
+      subnet {
+        name = google_compute_subnetwork.wellness_subnet.name
+      }
+      machine_type   = "e2-micro"
+      min_instances  = 2
+      max_instances  = 10
+      depends_on     = [google_project_service.required_apis]
+    }
+    
+    # Cloud SQL PostgreSQL Instance
+    resource "google_sql_database_instance" "wellness_postgres" {
+      name             = "wellness-postgres-${var.environment}"
+      database_version = "POSTGRES_15"
+      region           = var.region
+      
+      settings {
+        tier                        = "db-f1-micro"
+        availability_type           = "REGIONAL"
+        disk_type                  = "PD_SSD"
+        disk_size                  = 20
+        disk_autoresize            = true
+        disk_autoresize_limit      = 100
+        deletion_protection_enabled = true
+        
+        backup_configuration {
+          enabled                        = true
+          start_time                     = "02:00"
+          point_in_time_recovery_enabled = true
+          transaction_log_retention_days = 7
+          backup_retention_settings {
+            retained_backups = 7
+            retention_unit   = "COUNT"
+          }
+        }
+        
+        ip_configuration {
+          ipv4_enabled    = false
+          private_network = google_compute_network.wellness_vpc.id
+          require_ssl     = true
+        }
+        
+        database_flags {
+          name  = "log_checkpoints"
+          value = "on"
+        }
+        
+        database_flags {
+          name  = "log_connections"
+          value = "on"
+        }
+        
+        database_flags {
+          name  = "log_disconnections"
+          value = "on"
+        }
+        
+        database_flags {
+          name  = "log_lock_waits"
+          value = "on"
+        }
+        
+        insights_config {
+          query_insights_enabled  = true
+          query_string_length     = 1024
+          record_application_tags = true
+          record_client_address   = true
+        }
+      }
+      
+      depends_on = [
+        google_project_service.required_apis,
+        google_compute_global_address.private_ip_range
+      ]
+      
+      deletion_protection = true
+    }
+    
+    # Private IP Range for Cloud SQL
+    resource "google_compute_global_address" "private_ip_range" {
+      name          = "wellness-private-ip-range"
+      purpose       = "VPC_PEERING"
+      address_type  = "INTERNAL"
+      prefix_length = 16
+      network       = google_compute_network.wellness_vpc.id
+    }
+    
+    # VPC Peering for Cloud SQL
+    resource "google_service_networking_connection" "private_vpc_connection" {
+      network                 = google_compute_network.wellness_vpc.id
+      service                 = "servicenetworking.googleapis.com"
+      reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
+    }
+    
+    # Cloud SQL Database
+    resource "google_sql_database" "wellness_db" {
+      name     = "wellness_coach"
+      instance = google_sql_database_instance.wellness_postgres.name
+    }
+    
+    # Cloud SQL User
+    resource "google_sql_user" "wellness_user" {
+      name     = "wellness_user"
+      instance = google_sql_database_instance.wellness_postgres.name
+      password = random_password.db_password.result
+    }
+    
+    # Random password for database
+    resource "random_password" "db_password" {
+      length  = 16
+      special = true
+    }
+    
+    # Cloud Memorystore Redis Instance
+    resource "google_redis_instance" "wellness_redis" {
+      name           = "wellness-redis-${var.environment}"
+      tier           = "BASIC"
+      memory_size_gb = 1
+      region         = var.region
+      
+      authorized_network = google_compute_network.wellness_vpc.id
+      connect_mode       = "PRIVATE_SERVICE_ACCESS"
+      
+      redis_configs = {
+        maxmemory-policy = "allkeys-lru"
+      }
+      
+      depends_on = [google_project_service.required_apis]
+    }
+    
+    # Service Account for Cloud Run
+    resource "google_service_account" "wellness_cloudrun_sa" {
+      account_id   = "wellness-cloudrun-sa"
+      display_name = "Mental Wellness Coach Cloud Run Service Account"
+    }
+    
+    # IAM bindings for service account
+    resource "google_project_iam_member" "cloudrun_sa_cloudsql_client" {
+      project = var.project_id
+      role    = "roles/cloudsql.client"
+      member  = "serviceAccount:${google_service_account.wellness_cloudrun_sa.email}"
+    }
+    
+    resource "google_project_iam_member" "cloudrun_sa_secret_accessor" {
+      project = var.project_id
+      role    = "roles/secretmanager.secretAccessor"
+      member  = "serviceAccount:${google_service_account.wellness_cloudrun_sa.email}"
+    }
+    
+    # Secret Manager Secrets
+    resource "google_secret_manager_secret" "database_url" {
+      secret_id = "database-url"
+      
+      replication {
+        auto {}
+      }
+    }
+    
+    resource "google_secret_manager_secret_version" "database_url" {
+      secret      = google_secret_manager_secret.database_url.id
+      secret_data = "postgresql://${google_sql_user.wellness_user.name}:${random_password.db_password.result}@${google_sql_database_instance.wellness_postgres.private_ip_address}:5432/${google_sql_database.wellness_db.name}"
+    }
+    
+    resource "google_secret_manager_secret" "redis_url" {
+      secret_id = "redis-url"
+      
+      replication {
+        auto {}
+      }
+    }
+    
+    resource "google_secret_manager_secret_version" "redis_url" {
+      secret      = google_secret_manager_secret.redis_url.id
+      secret_data = "redis://${google_redis_instance.wellness_redis.host}:${google_redis_instance.wellness_redis.port}"
+    }
+    
+    # Placeholder secrets (to be updated manually)
+    resource "google_secret_manager_secret" "asi_api_key" {
+      secret_id = "asi-api-key"
+      
+      replication {
+        auto {}
+      }
+    }
+    
+    resource "google_secret_manager_secret" "jwt_secret" {
+      secret_id = "jwt-secret"
+      
+      replication {
+        auto {}
+      }
+    }
+    
+    resource "google_secret_manager_secret" "encryption_key" {
+      secret_id = "encryption-key"
+      
+      replication {
+        auto {}
+      }
+    }
+    
+    # Cloud Build Trigger
+    resource "google_cloudbuild_trigger" "wellness_trigger" {
+      name     = "wellness-deploy-trigger"
+      filename = "deployment/cloudbuild.yml"
+      
+      github {
+        owner = "your-org"
+        name  = "mental-wellness-coach"
+        push {
+          branch = "^main$"
+        }
+      }
+      
+      substitutions = {
+        _PROJECT_ID = var.project_id
+        _REGION     = var.region
+      }
+      
+      depends_on = [google_project_service.required_apis]
+    }
+    
+    # Outputs
+    output "database_instance_connection_name" {
+      description = "Cloud SQL instance connection name"
+      value       = google_sql_database_instance.wellness_postgres.connection_name
+    }
+    
+    output "redis_host" {
+      description = "Redis instance host"
+      value       = google_redis_instance.wellness_redis.host
+    }
+    
+    output "vpc_connector_name" {
+      description = "VPC Access Connector name"
+      value       = google_vpc_access_connector.wellness_connector.name
+    }
+    
+    output "service_account_email" {
+      description = "Cloud Run service account email"
+      value       = google_service_account.wellness_cloudrun_sa.email
+    }
+
+  # Deployment Script
+  deploy.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Mental Wellness Coach - GCP Deployment Script
+    
+    PROJECT_ID=${1:-}
+    ENVIRONMENT=${2:-production}
+    REGION=${3:-us-central1}
+    
+    if [ -z "$PROJECT_ID" ]; then
+      echo "Usage: $0 <PROJECT_ID> [ENVIRONMENT] [REGION]"
+      echo "Example: $0 my-wellness-project production us-central1"
+      exit 1
+    fi
+    
+    echo "Deploying Mental Wellness Coach to Google Cloud Platform..."
+    echo "Project ID: $PROJECT_ID"
+    echo "Environment: $ENVIRONMENT"
+    echo "Region: $REGION"
+    
+    # Set the project
+    gcloud config set project $PROJECT_ID
+    
+    # Enable required APIs
+    echo "Enabling required APIs..."
+    gcloud services enable \
+      run.googleapis.com \
+      sqladmin.googleapis.com \
+      vpcaccess.googleapis.com \
+      redis.googleapis.com \
+      secretmanager.googleapis.com \
+      cloudbuild.googleapis.com \
+      monitoring.googleapis.com \
+      logging.googleapis.com
+    
+    # Create Terraform state bucket if it doesn't exist
+    gsutil mb -p $PROJECT_ID -l $REGION gs://$PROJECT_ID-terraform-state || true
+    gsutil versioning set on gs://$PROJECT_ID-terraform-state
+    
+    # Initialize and apply Terraform
+    echo "Deploying infrastructure with Terraform..."
+    cd deployment
+    terraform init -backend-config="bucket=$PROJECT_ID-terraform-state"
+    terraform plan -var="project_id=$PROJECT_ID" -var="environment=$ENVIRONMENT" -var="region=$REGION"
+    terraform apply -var="project_id=$PROJECT_ID" -var="environment=$ENVIRONMENT" -var="region=$REGION" -auto-approve
+    
+    # Build and deploy the application
+    echo "Building and deploying application..."
+    cd ..
+    
+    # Submit build to Cloud Build
+    gcloud builds submit --config=deployment/cloudbuild.yml \
+      --substitutions=_PROJECT_ID=$PROJECT_ID,_REGION=$REGION .
+    
+    # Get the service URL
+    SERVICE_URL=$(gcloud run services describe wellness-backend --region=$REGION --format="value(status.url)")
+    
+    echo "Deployment complete!"
+    echo "Application is available at: $SERVICE_URL"
+    echo ""
+    echo "Next steps:"
+    echo "1. Update the following secrets in Secret Manager:"
+    echo "   - asi-api-key: Your ASI:One API key"
+    echo "   - jwt-secret: A secure JWT secret"
+    echo "   - encryption-key: A secure encryption key"
+    echo ""
+    echo "2. Configure your domain and SSL certificate if needed"
+    echo "3. Set up monitoring and alerting" 

@@ -1,0 +1,758 @@
+# Mental Wellness Coach - Microsoft Azure Deployment Configuration
+#
+# This configuration deploys the application to Azure using:
+# - Azure Container Instances (ACI) for container hosting
+# - Azure Database for PostgreSQL for database
+# - Azure Cache for Redis for caching
+# - Azure DevOps for CI/CD
+# - Azure Key Vault for secure configuration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wellness-azure-config
+  namespace: default
+data:
+  # Azure Resource Manager Template
+  azuredeploy.json: |
+    {
+      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "appName": {
+          "type": "string",
+          "defaultValue": "mental-wellness-coach",
+          "metadata": {
+            "description": "Name of the application"
+          }
+        },
+        "environment": {
+          "type": "string",
+          "defaultValue": "production",
+          "allowedValues": ["development", "staging", "production"],
+          "metadata": {
+            "description": "Environment for deployment"
+          }
+        },
+        "location": {
+          "type": "string",
+          "defaultValue": "[resourceGroup().location]",
+          "metadata": {
+            "description": "Location for all resources"
+          }
+        },
+        "administratorLogin": {
+          "type": "string",
+          "defaultValue": "wellness_admin",
+          "metadata": {
+            "description": "Administrator username for PostgreSQL"
+          }
+        },
+        "administratorLoginPassword": {
+          "type": "securestring",
+          "metadata": {
+            "description": "Administrator password for PostgreSQL"
+          }
+        },
+        "asiApiKey": {
+          "type": "securestring",
+          "metadata": {
+            "description": "ASI:One API Key"
+          }
+        },
+        "jwtSecret": {
+          "type": "securestring",
+          "metadata": {
+            "description": "JWT Secret Key"
+          }
+        },
+        "encryptionKey": {
+          "type": "securestring",
+          "metadata": {
+            "description": "Data Encryption Key"
+          }
+        }
+      },
+      "variables": {
+        "uniqueSuffix": "[substring(uniqueString(resourceGroup().id), 0, 6)]",
+        "postgresServerName": "[concat(parameters('appName'), '-postgres-', variables('uniqueSuffix'))]",
+        "redisName": "[concat(parameters('appName'), '-redis-', variables('uniqueSuffix'))]",
+        "keyVaultName": "[concat(parameters('appName'), '-kv-', variables('uniqueSuffix'))]",
+        "containerGroupName": "[concat(parameters('appName'), '-containers-', variables('uniqueSuffix'))]",
+        "logAnalyticsWorkspaceName": "[concat(parameters('appName'), '-logs-', variables('uniqueSuffix'))]",
+        "applicationInsightsName": "[concat(parameters('appName'), '-insights-', variables('uniqueSuffix'))]",
+        "networkSecurityGroupName": "[concat(parameters('appName'), '-nsg-', variables('uniqueSuffix'))]",
+        "virtualNetworkName": "[concat(parameters('appName'), '-vnet-', variables('uniqueSuffix'))]",
+        "subnetName": "containers-subnet"
+      },
+      "resources": [
+        {
+          "type": "Microsoft.Network/networkSecurityGroups",
+          "apiVersion": "2021-02-01",
+          "name": "[variables('networkSecurityGroupName')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "securityRules": [
+              {
+                "name": "HTTP",
+                "properties": {
+                  "priority": 1000,
+                  "access": "Allow",
+                  "direction": "Inbound",
+                  "destinationPortRange": "80",
+                  "protocol": "Tcp",
+                  "sourceAddressPrefix": "*",
+                  "sourcePortRange": "*",
+                  "destinationAddressPrefix": "*"
+                }
+              },
+              {
+                "name": "HTTPS",
+                "properties": {
+                  "priority": 1100,
+                  "access": "Allow",
+                  "direction": "Inbound",
+                  "destinationPortRange": "443",
+                  "protocol": "Tcp",
+                  "sourceAddressPrefix": "*",
+                  "sourcePortRange": "*",
+                  "destinationAddressPrefix": "*"
+                }
+              },
+              {
+                "name": "Flask",
+                "properties": {
+                  "priority": 1200,
+                  "access": "Allow",
+                  "direction": "Inbound",
+                  "destinationPortRange": "5000",
+                  "protocol": "Tcp",
+                  "sourceAddressPrefix": "*",
+                  "sourcePortRange": "*",
+                  "destinationAddressPrefix": "*"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.Network/virtualNetworks",
+          "apiVersion": "2021-02-01",
+          "name": "[variables('virtualNetworkName')]",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+          ],
+          "properties": {
+            "addressSpace": {
+              "addressPrefixes": ["10.0.0.0/16"]
+            },
+            "subnets": [
+              {
+                "name": "[variables('subnetName')]",
+                "properties": {
+                  "addressPrefix": "10.0.1.0/24",
+                  "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+                  },
+                  "delegations": [
+                    {
+                      "name": "Microsoft.ContainerInstance.containerGroups",
+                      "properties": {
+                        "serviceName": "Microsoft.ContainerInstance/containerGroups"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "Microsoft.OperationalInsights/workspaces",
+          "apiVersion": "2021-06-01",
+          "name": "[variables('logAnalyticsWorkspaceName')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "sku": {
+              "name": "PerGB2018"
+            },
+            "retentionInDays": 30
+          }
+        },
+        {
+          "type": "Microsoft.Insights/components",
+          "apiVersion": "2020-02-02",
+          "name": "[variables('applicationInsightsName')]",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+          ],
+          "kind": "web",
+          "properties": {
+            "Application_Type": "web",
+            "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+          }
+        },
+        {
+          "type": "Microsoft.KeyVault/vaults",
+          "apiVersion": "2021-10-01",
+          "name": "[variables('keyVaultName')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "tenantId": "[subscription().tenantId]",
+            "sku": {
+              "family": "A",
+              "name": "standard"
+            },
+            "accessPolicies": [],
+            "enabledForDeployment": true,
+            "enabledForTemplateDeployment": true,
+            "enabledForDiskEncryption": false,
+            "enableRbacAuthorization": true,
+            "networkAcls": {
+              "defaultAction": "Allow",
+              "bypass": "AzureServices"
+            }
+          }
+        },
+        {
+          "type": "Microsoft.KeyVault/vaults/secrets",
+          "apiVersion": "2021-10-01",
+          "name": "[concat(variables('keyVaultName'), '/asi-api-key')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[parameters('asiApiKey')]"
+          }
+        },
+        {
+          "type": "Microsoft.KeyVault/vaults/secrets",
+          "apiVersion": "2021-10-01",
+          "name": "[concat(variables('keyVaultName'), '/jwt-secret')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[parameters('jwtSecret')]"
+          }
+        },
+        {
+          "type": "Microsoft.KeyVault/vaults/secrets",
+          "apiVersion": "2021-10-01",
+          "name": "[concat(variables('keyVaultName'), '/encryption-key')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[parameters('encryptionKey')]"
+          }
+        },
+        {
+          "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+          "apiVersion": "2021-06-01",
+          "name": "[variables('postgresServerName')]",
+          "location": "[parameters('location')]",
+          "sku": {
+            "name": "Standard_B1ms",
+            "tier": "Burstable"
+          },
+          "properties": {
+            "administratorLogin": "[parameters('administratorLogin')]",
+            "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+            "version": "15",
+            "storage": {
+              "storageSizeGB": 32
+            },
+            "backup": {
+              "backupRetentionDays": 7,
+              "geoRedundantBackup": "Disabled"
+            },
+            "network": {
+              "publicNetworkAccess": "Enabled"
+            },
+            "highAvailability": {
+              "mode": "Disabled"
+            },
+            "maintenanceWindow": {
+              "customWindow": "Disabled",
+              "dayOfWeek": 0,
+              "startHour": 0,
+              "startMinute": 0
+            }
+          }
+        },
+        {
+          "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+          "apiVersion": "2021-06-01",
+          "name": "[concat(variables('postgresServerName'), '/wellness_coach')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('postgresServerName'))]"
+          ],
+          "properties": {}
+        },
+        {
+          "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+          "apiVersion": "2021-06-01",
+          "name": "[concat(variables('postgresServerName'), '/AllowAllIps')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('postgresServerName'))]"
+          ],
+          "properties": {
+            "startIpAddress": "0.0.0.0",
+            "endIpAddress": "255.255.255.255"
+          }
+        },
+        {
+          "type": "Microsoft.Cache/redis",
+          "apiVersion": "2021-06-01",
+          "name": "[variables('redisName')]",
+          "location": "[parameters('location')]",
+          "properties": {
+            "sku": {
+              "name": "Basic",
+              "family": "C",
+              "capacity": 0
+            },
+            "enableNonSslPort": false,
+            "minimumTlsVersion": "1.2",
+            "redisConfiguration": {
+              "maxmemory-reserved": "2",
+              "maxfragmentationmemory-reserved": "12",
+              "maxmemory-delta": "2"
+            }
+          }
+        },
+        {
+          "type": "Microsoft.ContainerInstance/containerGroups",
+          "apiVersion": "2021-10-01",
+          "name": "[variables('containerGroupName')]",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('postgresServerName'))]",
+            "[resourceId('Microsoft.Cache/redis', variables('redisName'))]",
+            "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+            "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",
+            "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+          ],
+          "identity": {
+            "type": "SystemAssigned"
+          },
+          "properties": {
+            "containers": [
+              {
+                "name": "wellness-backend",
+                "properties": {
+                  "image": "your-registry.azurecr.io/wellness-backend:latest",
+                  "ports": [
+                    {
+                      "port": 5000,
+                      "protocol": "TCP"
+                    }
+                  ],
+                  "environmentVariables": [
+                    {
+                      "name": "FLASK_ENV",
+                      "value": "production"
+                    },
+                    {
+                      "name": "DATABASE_URL",
+                      "secureValue": "[concat('postgresql://', parameters('administratorLogin'), ':', parameters('administratorLoginPassword'), '@', reference(variables('postgresServerName')).fullyQualifiedDomainName, ':5432/wellness_coach')]"
+                    },
+                    {
+                      "name": "REDIS_URL",
+                      "secureValue": "[concat('redis://:', listKeys(resourceId('Microsoft.Cache/redis', variables('redisName')), '2021-06-01').primaryKey, '@', reference(variables('redisName')).hostName, ':6380')]"
+                    },
+                    {
+                      "name": "ASI_ONE_API_KEY",
+                      "secureValue": "[parameters('asiApiKey')]"
+                    },
+                    {
+                      "name": "JWT_SECRET",
+                      "secureValue": "[parameters('jwtSecret')]"
+                    },
+                    {
+                      "name": "ENCRYPTION_KEY",
+                      "secureValue": "[parameters('encryptionKey')]"
+                    },
+                    {
+                      "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                      "value": "[reference(variables('applicationInsightsName')).ConnectionString]"
+                    }
+                  ],
+                  "resources": {
+                    "requests": {
+                      "cpu": 1,
+                      "memoryInGB": 2
+                    },
+                    "limits": {
+                      "cpu": 2,
+                      "memoryInGB": 4
+                    }
+                  },
+                  "livenessProbe": {
+                    "httpGet": {
+                      "path": "/health",
+                      "port": 5000,
+                      "scheme": "HTTP"
+                    },
+                    "initialDelaySeconds": 30,
+                    "periodSeconds": 30,
+                    "timeoutSeconds": 5,
+                    "successThreshold": 1,
+                    "failureThreshold": 3
+                  },
+                  "readinessProbe": {
+                    "httpGet": {
+                      "path": "/health",
+                      "port": 5000,
+                      "scheme": "HTTP"
+                    },
+                    "initialDelaySeconds": 10,
+                    "periodSeconds": 10,
+                    "timeoutSeconds": 5,
+                    "successThreshold": 1,
+                    "failureThreshold": 3
+                  }
+                }
+              }
+            ],
+            "osType": "Linux",
+            "restartPolicy": "Always",
+            "ipAddress": {
+              "type": "Public",
+              "ports": [
+                {
+                  "port": 5000,
+                  "protocol": "TCP"
+                }
+              ],
+              "dnsNameLabel": "[concat(parameters('appName'), '-', variables('uniqueSuffix'))]"
+            },
+            "subnetIds": [
+              {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]"
+              }
+            ],
+            "diagnostics": {
+              "logAnalytics": {
+                "workspaceId": "[reference(variables('logAnalyticsWorkspaceName')).customerId]",
+                "workspaceKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2021-06-01').primarySharedKey]"
+              }
+            }
+          }
+        }
+      ],
+      "outputs": {
+        "postgresServerName": {
+          "type": "string",
+          "value": "[variables('postgresServerName')]"
+        },
+        "redisName": {
+          "type": "string",
+          "value": "[variables('redisName')]"
+        },
+        "keyVaultName": {
+          "type": "string",
+          "value": "[variables('keyVaultName')]"
+        },
+        "applicationUrl": {
+          "type": "string",
+          "value": "[concat('http://', reference(variables('containerGroupName')).ipAddress.fqdn, ':5000')]"
+        },
+        "containerGroupName": {
+          "type": "string",
+          "value": "[variables('containerGroupName')]"
+        },
+        "logAnalyticsWorkspace": {
+          "type": "string",
+          "value": "[variables('logAnalyticsWorkspaceName')]"
+        }
+      }
+    }
+
+  # Azure DevOps Pipeline
+  azure-pipelines.yml: |
+    # Mental Wellness Coach - Azure DevOps Pipeline
+    
+    trigger:
+      branches:
+        include:
+        - main
+        - develop
+    
+    variables:
+      dockerRegistryServiceConnection: 'wellness-acr-connection'
+      imageRepository: 'wellness-backend'
+      containerRegistry: 'your-registry.azurecr.io'
+      dockerfilePath: '$(Build.SourcesDirectory)/backend/Dockerfile'
+      tag: '$(Build.BuildId)'
+      vmImageName: 'ubuntu-latest'
+      resourceGroupName: 'mental-wellness-coach-rg'
+      azureSubscription: 'wellness-azure-connection'
+    
+    stages:
+    - stage: Build
+      displayName: Build stage
+      jobs:
+      - job: Build
+        displayName: Build
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+        - task: Docker@2
+          displayName: Build and push image to container registry
+          inputs:
+            command: buildAndPush
+            repository: $(imageRepository)
+            dockerfile: $(dockerfilePath)
+            containerRegistry: $(dockerRegistryServiceConnection)
+            tags: |
+              $(tag)
+              latest
+        
+        - task: PublishPipelineArtifact@1
+          inputs:
+            artifactName: 'arm-templates'
+            path: '$(Build.SourcesDirectory)/deployment'
+    
+    - stage: Test
+      displayName: Test stage
+      dependsOn: Build
+      jobs:
+      - job: Test
+        displayName: Run Tests
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+        - task: UsePythonVersion@0
+          inputs:
+            versionSpec: '3.11'
+            displayName: 'Use Python 3.11'
+        
+        - script: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+          displayName: 'Install dependencies'
+        
+        - script: |
+            cd backend
+            python -m pytest tests/ --junitxml=junit/test-results.xml --cov=. --cov-report=xml
+          displayName: 'Run tests'
+        
+        - task: PublishTestResults@2
+          condition: succeededOrFailed()
+          inputs:
+            testResultsFiles: '**/test-*.xml'
+            testRunTitle: 'Publish test results for Python $(python.version)'
+        
+        - task: PublishCodeCoverageResults@1
+          inputs:
+            codeCoverageTool: Cobertura
+            summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    
+    - stage: Deploy
+      displayName: Deploy stage
+      dependsOn: Test
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      jobs:
+      - deployment: Deploy
+        displayName: Deploy to Azure
+        environment: 'production'
+        pool:
+          vmImage: $(vmImageName)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+              - task: DownloadPipelineArtifact@2
+                inputs:
+                  artifactName: 'arm-templates'
+                  downloadPath: '$(System.DefaultWorkingDirectory)'
+              
+              - task: AzureResourceManagerTemplateDeployment@3
+                inputs:
+                  deploymentScope: 'Resource Group'
+                  azureResourceManagerConnection: '$(azureSubscription)'
+                  subscriptionId: '$(subscriptionId)'
+                  action: 'Create Or Update Resource Group'
+                  resourceGroupName: '$(resourceGroupName)'
+                  location: 'East US'
+                  templateLocation: 'Linked artifact'
+                  csmFile: '$(System.DefaultWorkingDirectory)/azuredeploy.json'
+                  csmParametersFile: '$(System.DefaultWorkingDirectory)/azuredeploy.parameters.json'
+                  overrideParameters: |
+                    -appName "mental-wellness-coach"
+                    -environment "production"
+                    -administratorLoginPassword "$(postgresPassword)"
+                    -asiApiKey "$(asiApiKey)"
+                    -jwtSecret "$(jwtSecret)"
+                    -encryptionKey "$(encryptionKey)"
+                  deploymentMode: 'Incremental'
+                  deploymentName: 'mental-wellness-coach-deployment'
+              
+              - task: AzureCLI@2
+                displayName: 'Update Container Group'
+                inputs:
+                  azureSubscription: '$(azureSubscription)'
+                  scriptType: 'bash'
+                  scriptLocation: 'inlineScript'
+                  inlineScript: |
+                    # Get the container group name from ARM template output
+                    CONTAINER_GROUP=$(az deployment group show \
+                      --resource-group $(resourceGroupName) \
+                      --name mental-wellness-coach-deployment \
+                      --query 'properties.outputs.containerGroupName.value' \
+                      --output tsv)
+                    
+                    # Update container with new image
+                    az container restart \
+                      --resource-group $(resourceGroupName) \
+                      --name $CONTAINER_GROUP
+                    
+                    echo "Container group $CONTAINER_GROUP restarted successfully"
+
+  # Parameters file for ARM template
+  azuredeploy.parameters.json: |
+    {
+      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "appName": {
+          "value": "mental-wellness-coach"
+        },
+        "environment": {
+          "value": "production"
+        },
+        "location": {
+          "value": "East US"
+        },
+        "administratorLogin": {
+          "value": "wellness_admin"
+        },
+        "administratorLoginPassword": {
+          "reference": {
+            "keyVault": {
+              "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+            },
+            "secretName": "postgres-admin-password"
+          }
+        },
+        "asiApiKey": {
+          "reference": {
+            "keyVault": {
+              "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+            },
+            "secretName": "asi-api-key"
+          }
+        },
+        "jwtSecret": {
+          "reference": {
+            "keyVault": {
+              "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+            },
+            "secretName": "jwt-secret"
+          }
+        },
+        "encryptionKey": {
+          "reference": {
+            "keyVault": {
+              "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+            },
+            "secretName": "encryption-key"
+          }
+        }
+      }
+    }
+
+  # Deployment Script
+  deploy.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Mental Wellness Coach - Azure Deployment Script
+    
+    SUBSCRIPTION_ID=${1:-}
+    RESOURCE_GROUP=${2:-mental-wellness-coach-rg}
+    LOCATION=${3:-eastus}
+    APP_NAME=${4:-mental-wellness-coach}
+    
+    if [ -z "$SUBSCRIPTION_ID" ]; then
+      echo "Usage: $0 <SUBSCRIPTION_ID> [RESOURCE_GROUP] [LOCATION] [APP_NAME]"
+      echo "Example: $0 12345678-1234-1234-1234-123456789012 wellness-rg eastus wellness-app"
+      exit 1
+    fi
+    
+    echo "Deploying Mental Wellness Coach to Microsoft Azure..."
+    echo "Subscription: $SUBSCRIPTION_ID"
+    echo "Resource Group: $RESOURCE_GROUP"
+    echo "Location: $LOCATION"
+    echo "App Name: $APP_NAME"
+    
+    # Login to Azure (if not already logged in)
+    if ! az account show &> /dev/null; then
+      echo "Please login to Azure..."
+      az login
+    fi
+    
+    # Set subscription
+    az account set --subscription $SUBSCRIPTION_ID
+    
+    # Create resource group
+    echo "Creating resource group..."
+    az group create --name $RESOURCE_GROUP --location $LOCATION
+    
+    # Create Azure Container Registry
+    echo "Creating Azure Container Registry..."
+    ACR_NAME="${APP_NAME}acr$(date +%s)"
+    az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic --admin-enabled true
+    
+    # Build and push image to ACR
+    echo "Building and pushing Docker image..."
+    az acr build --registry $ACR_NAME --image wellness-backend:latest backend/
+    
+    # Generate secure passwords
+    POSTGRES_PASSWORD=$(openssl rand -base64 32)
+    JWT_SECRET=$(openssl rand -base64 32)
+    ENCRYPTION_KEY=$(openssl rand -base64 32)
+    
+    echo "Please provide your ASI:One API key:"
+    read -s ASI_API_KEY
+    
+    # Deploy ARM template
+    echo "Deploying Azure resources..."
+    az deployment group create \
+      --resource-group $RESOURCE_GROUP \
+      --template-file azuredeploy.json \
+      --parameters \
+        appName=$APP_NAME \
+        environment=production \
+        location=$LOCATION \
+        administratorLoginPassword=$POSTGRES_PASSWORD \
+        asiApiKey=$ASI_API_KEY \
+        jwtSecret=$JWT_SECRET \
+        encryptionKey=$ENCRYPTION_KEY
+    
+    # Get deployment outputs
+    APP_URL=$(az deployment group show \
+      --resource-group $RESOURCE_GROUP \
+      --name azuredeploy \
+      --query 'properties.outputs.applicationUrl.value' \
+      --output tsv)
+    
+    echo "Deployment complete!"
+    echo "Application is available at: $APP_URL"
+    echo ""
+    echo "Resources created:"
+    echo "- PostgreSQL Database"
+    echo "- Redis Cache"
+    echo "- Key Vault with secrets"
+    echo "- Container Instance"
+    echo "- Log Analytics Workspace"
+    echo "- Application Insights"
+    echo ""
+    echo "Next steps:"
+    echo "1. Configure custom domain and SSL certificate"
+    echo "2. Set up monitoring alerts"
+    echo "3. Configure backup policies" 
