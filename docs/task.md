@@ -441,6 +441,29 @@ This document outlines the comprehensive development roadmap for the Mental Well
   - AI features can be re-added incrementally after successful deployment
   - Deployment process streamlined with proper Cloud Build configuration
 
+### December 2024 - Cloud Run Secret Manager Permissions Fix 🔧
+- **Status**: PARTIALLY COMPLETED
+- **Date Added**: December 2024
+- **Description**: Fix Cloud Run deployment failure due to missing Secret Manager permissions
+- **Issues Fixed**:
+  - [x] Cloud Run service account missing 'Secret Manager Secret Accessor' role ✅
+  - [x] Update cloudbuild.yaml to include secret configuration ✅
+  - [x] Create script to grant proper IAM permissions ✅
+  - [ ] Resolve Docker build failure in Cloud Build environment (separate issue)
+- **Issues Completed**:
+  - ✅ Granted roles/secretmanager.secretAccessor to service account 321805997355-compute@developer.gserviceaccount.com
+  - ✅ Updated cloudbuild.yaml with --update-secrets parameter for Secret Manager integration
+  - ✅ Created fix-cloudrun-permissions.ps1 script for automated permission fixes
+  - ✅ Docker builds work locally but failing in Cloud Build (exit status 125)
+- **Next Steps**:
+  - Investigate Cloud Build Docker builder version compatibility issue
+  - Check Cloud Build logs for specific error details
+  - Consider using Cloud Build substitutions for Dockerfile path
+- **Skills Required**: GCP IAM, Cloud Run, Secret Manager, CI/CD, Docker troubleshooting
+- **Priority**: Critical (Secret Manager permissions fixed, but build pipeline needs debugging)
+- **Estimated Hours**: 1 hour remaining (for Docker build issue)
+- **Actual Hours**: 1.5 hours
+
 ---
 
 ## 📋 Epic 3: Cloud Deployment & Production

@@ -1,5 +1,5 @@
 steps:
-# Build the container image
+# Build the container image with simplified Dockerfile
 - name: 'gcr.io/cloud-builders/docker'
   args:
   - 'build'
@@ -8,7 +8,7 @@ steps:
   - '-t'
   - 'gcr.io/$PROJECT_ID/wellness-backend:latest'
   - '-f'
-  - 'backend/Dockerfile'
+  - 'backend/Dockerfile.simple'
   - '.'
 
 # Push the container image to Container Registry
