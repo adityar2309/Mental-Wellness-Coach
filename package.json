@@ -63,5 +63,10 @@
     "react-native"
   ],
   "author": "Mental Wellness Coach Team",
-  "license": "MIT"
-} 
+  "license": "MIT",
+  "dependencies": {
+    "react-native-web": "~0.19.6",
+    "react-dom": "18.2.0",
+    "@expo/webpack-config": "^19.0.0"
+  }
+}
