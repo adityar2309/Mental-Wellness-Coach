@@ -90,7 +90,7 @@ export class AuthService {
   static async isAuthenticated(): Promise<boolean> {
     try {
       const token = await this.getToken();
-      return token !== null;
+      return token !== null && token.trim() !== '';
     } catch (error) {
       console.error('Error checking authentication status:', error);
       return false;

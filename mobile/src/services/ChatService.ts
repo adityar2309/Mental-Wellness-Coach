@@ -50,10 +50,8 @@ export interface SendMessageRequest {
 }
 
 export class ChatService {
-  private authService: AuthService;
-
   constructor() {
-    this.authService = new AuthService();
+    // Removed: this.authService = new AuthService();
   }
 
   /**
@@ -134,7 +132,7 @@ export class ChatService {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
-      return await this.authService.isAuthenticated();
+      return await AuthService.isAuthenticated();
     } catch (error) {
       console.error('[ChatService] Authentication check failed:', error);
       return false;
@@ -153,6 +151,12 @@ export class ChatService {
   formatMessageTime(timestamp: string): string {
     try {
       const date = new Date(timestamp);
+      
+      // Check if date is invalid
+      if (isNaN(date.getTime())) {
+        return 'Unknown time';
+      }
+      
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -168,7 +172,8 @@ export class ChatService {
       } else if (diffDays < 7) {
         return `${diffDays}d ago`;
       } else {
-        return date.toLocaleDateString();
+        // For US locale format: MM/DD/YYYY
+        return date.toLocaleDateString('en-US');
       }
     } catch (error) {
       console.error('[ChatService] Failed to format timestamp:', error);
@@ -186,8 +191,11 @@ export class ChatService {
    *   boolean: True if crisis detected, false otherwise
    */
   isCrisisDetected(response: ChatResponse): boolean {
-    const crisisLevel = response.response.crisis_level;
-    return crisisLevel && ['HIGH', 'CRITICAL'].includes(crisisLevel.toUpperCase());
+    const crisisLevel = response.response?.crisis_level;
+    if (!crisisLevel) {
+      return false;
+    }
+    return ['HIGH', 'CRITICAL'].includes(crisisLevel.toUpperCase());
   }
 
   /**
@@ -200,18 +208,21 @@ export class ChatService {
    *   string: Crisis support message
    */
   getCrisisSupportMessage(response: ChatResponse): string {
-    if (!this.isCrisisDetected(response)) {
+    const crisisLevel = response.response?.crisis_level?.toUpperCase();
+    
+    if (!crisisLevel || crisisLevel === 'NONE' || crisisLevel === 'LOW') {
       return '';
     }
-
-    const crisisLevel = response.response.crisis_level?.toUpperCase();
     
     if (crisisLevel === 'CRITICAL') {
       return 'I notice you might be in crisis. Please consider reaching out for immediate support.';
     } else if (crisisLevel === 'HIGH') {
       return 'I want to make sure you\'re safe. Let\'s talk about getting you some support.';
+    } else if (crisisLevel === 'MEDIUM') {
+      return 'I\'m here to support you through this difficult time.';
     }
     
+    // Fallback for any other crisis levels
     return 'I\'m here to support you through this difficult time.';
   }
 }

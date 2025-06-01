@@ -6,35 +6,52 @@
  */
 
 import ChatService, { ChatMessage, ChatResponse, SendMessageRequest } from '../../src/services/ChatService';
+
+// Mock the dependencies
+jest.mock('../../src/services/ApiClient', () => ({
+  ApiClient: {
+    post: jest.fn(),
+    get: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    patch: jest.fn(),
+    setBaseURL: jest.fn(),
+  },
+}));
+
+jest.mock('../../src/services/AuthService', () => ({
+  AuthService: {
+    isAuthenticated: jest.fn(),
+    login: jest.fn(),
+    logout: jest.fn(),
+    getToken: jest.fn(),
+    getCurrentUser: jest.fn(),
+    storeToken: jest.fn(),
+    storeUserData: jest.fn(),
+    getUserData: jest.fn(),
+    register: jest.fn(),
+    markOnboardingCompleted: jest.fn(),
+    hasCompletedOnboarding: jest.fn(),
+    refreshUserData: jest.fn(),
+  },
+}));
+
+// Import mocked modules
 import { ApiClient } from '../../src/services/ApiClient';
 import { AuthService } from '../../src/services/AuthService';
 
-// Mock the dependencies
-jest.mock('../../src/services/ApiClient');
-jest.mock('../../src/services/AuthService');
-
-const MockedApiClient = ApiClient as jest.MockedClass<typeof ApiClient>;
-const MockedAuthService = AuthService as jest.MockedClass<typeof AuthService>;
+const mockApiClient = ApiClient as jest.Mocked<typeof ApiClient>;
+const mockAuthService = AuthService as jest.Mocked<typeof AuthService>;
 
 describe('ChatService', () => {
   let chatService: ChatService;
-  let mockApiClient: jest.Mocked<ApiClient>;
-  let mockAuthService: jest.Mocked<AuthService>;
 
   beforeEach(() => {
     // Clear all mocks
     jest.clearAllMocks();
 
-    // Create mock instances
-    mockApiClient = new MockedApiClient() as jest.Mocked<ApiClient>;
-    mockAuthService = new MockedAuthService() as jest.Mocked<AuthService>;
-
     // Create ChatService instance
     chatService = new ChatService();
-
-    // Override the private properties using type assertion
-    (chatService as any).apiClient = mockApiClient;
-    (chatService as any).authService = mockAuthService;
   });
 
   describe('sendMessage', () => {
@@ -217,18 +234,20 @@ describe('ChatService', () => {
       const result = await chatService.isAuthenticated();
 
       // Assert
+      expect(mockAuthService.isAuthenticated).toHaveBeenCalled();
       expect(result).toBe(false);
     });
   });
 
   describe('formatMessageTime', () => {
     beforeEach(() => {
-      // Mock current time to December 1, 2024, 12:00:00 UTC
-      jest.spyOn(Date, 'now').mockReturnValue(new Date('2024-12-01T12:00:00Z').getTime());
+      // Mock the current time to be December 1, 2024, 12:00:00 UTC
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2024-12-01T12:00:00Z'));
     });
 
     afterEach(() => {
-      jest.restoreAllMocks();
+      jest.useRealTimers();
     });
 
     it('should return "Just now" for very recent messages', () => {
@@ -283,7 +302,7 @@ describe('ChatService', () => {
       const result = chatService.formatMessageTime(timestamp);
 
       // Assert
-      expect(result).toBe('11/20/2024'); // Default locale date format
+      expect(result).toBe('11/20/2024'); // US locale date format
     });
 
     it('should handle invalid timestamps gracefully', () => {
