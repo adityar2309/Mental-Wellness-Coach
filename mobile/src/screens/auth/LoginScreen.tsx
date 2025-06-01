@@ -57,16 +57,10 @@ export default function LoginScreen({ navigation }: Props) {
     try {
       const response = await AuthService.login(formData);
       
-      Alert.alert(
-        'Welcome Back!',
-        `Hello ${response.user.name || 'there'}! Ready to continue your wellness journey?`,
-        [
-          {
-            text: 'Let\'s Go!',
-            onPress: () => navigation.replace('Home'),
-          },
-        ]
-      );
+      navigation.replace('Home');
+      
+      console.log(`Welcome back, ${response.user.name || 'there'}!`);
+      
     } catch (error) {
       Alert.alert(
         'Login Failed',
@@ -97,7 +91,7 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={styles.welcomeEmoji}>🤗</Text>
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
-              Sign in to continue your mental wellness journey
+              Sign in to continue your wellness journey
             </Text>
           </View>
 

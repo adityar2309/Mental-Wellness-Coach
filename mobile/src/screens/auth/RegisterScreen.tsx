@@ -71,16 +71,12 @@ export default function RegisterScreen({ navigation }: Props) {
     try {
       const response = await AuthService.register(formData);
       
-      Alert.alert(
-        'Welcome to Mental Wellness Coach!',
-        `Hello ${response.user.name || 'there'}! Your account has been created successfully. Let's start your wellness journey!`,
-        [
-          {
-            text: 'Get Started',
-            onPress: () => navigation.replace('Home'),
-          },
-        ]
-      );
+      // Navigate directly to Home screen
+      navigation.replace('Home');
+      
+      // Optional: Show a console message for debugging
+      console.log(`Welcome to Mental Wellness Coach, ${response.user.name || 'there'}!`);
+      
     } catch (error) {
       Alert.alert(
         'Registration Failed',

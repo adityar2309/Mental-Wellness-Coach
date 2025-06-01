@@ -67,6 +67,15 @@ export default function App() {
     }
   };
 
+  const refreshAuthState = async () => {
+    try {
+      const authStatus = await AuthService.isAuthenticated();
+      setIsAuthenticated(authStatus);
+    } catch (error) {
+      console.warn('Error refreshing auth state:', error);
+    }
+  };
+
   const getInitialRouteName = (): keyof RootStackParamList => {
     if (isFirstLaunch) return 'Onboarding';
     if (!isAuthenticated) return 'Login';
@@ -78,7 +87,9 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      onStateChange={refreshAuthState}
+    >
       <StatusBar style="auto" />
       <Stack.Navigator
         initialRouteName={getInitialRouteName()}

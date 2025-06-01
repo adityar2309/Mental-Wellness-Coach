@@ -41,13 +41,13 @@ export default function MoodCheckInScreen({ navigation }: Props) {
     setIsLoading(true);
     try {
       await MoodApi.quickCheckIn(selectedMood);
-      Alert.alert(
-        'Mood Recorded!',
-        'Thank you for checking in. Your mood has been saved.',
-        [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]
-      );
+      
+      // Navigate directly to Home screen
+      navigation.navigate('Home');
+      
+      // Optional: Show a console message for debugging
+      console.log('Mood recorded successfully! Redirecting to Home...');
+      
     } catch (error) {
       Alert.alert('Error', 'Failed to save your mood. Please try again.');
     } finally {
