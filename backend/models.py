@@ -266,11 +266,67 @@ class CrisisEvent(db.Model):
             'id': self.id,
             'trigger_source': self.trigger_source,
             'crisis_level': self.crisis_level,
+            'trigger_content': self.trigger_content,
             'ai_confidence': self.ai_confidence,
             'intervention_taken': self.intervention_taken,
             'professional_notified': self.professional_notified,
+            'user_response': self.user_response,
             'resolved_at': self.resolved_at.isoformat() if self.resolved_at else None,
             'created_at': self.created_at.isoformat()
+        }
+
+class MindfulnessSession(db.Model):
+    """Mindfulness and meditation session tracking."""
+    __tablename__ = 'mindfulness_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    session_type = db.Column(db.String(50), nullable=False)  # 'breathing', 'meditation', 'body_scan', 'progressive_relaxation'
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    duration_minutes = db.Column(db.Integer, nullable=False)
+    completed_duration_minutes = db.Column(db.Integer)  # Actual time completed
+    completed = db.Column(db.Boolean, default=False)
+    effectiveness_rating = db.Column(db.Integer)  # 1-10 scale post-session
+    mood_before = db.Column(db.Integer)  # 1-10 scale
+    mood_after = db.Column(db.Integer)  # 1-10 scale
+    stress_before = db.Column(db.Integer)  # 1-10 scale
+    stress_after = db.Column(db.Integer)  # 1-10 scale
+    notes = db.Column(db.Text)
+    session_data = db.Column(db.Text)  # JSON for session-specific data (breathing patterns, etc.)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    
+    # Relationships
+    user = db.relationship('User', backref='mindfulness_sessions')
+    
+    def set_session_data(self, data_dict):
+        """Set session data as JSON string."""
+        self.session_data = json.dumps(data_dict) if data_dict else None
+    
+    def get_session_data(self):
+        """Get session data as dictionary."""
+        return json.loads(self.session_data) if self.session_data else {}
+    
+    def to_dict(self):
+        """Convert mindfulness session to dictionary."""
+        return {
+            'id': self.id,
+            'session_type': self.session_type,
+            'title': self.title,
+            'description': self.description,
+            'duration_minutes': self.duration_minutes,
+            'completed_duration_minutes': self.completed_duration_minutes,
+            'completed': self.completed,
+            'effectiveness_rating': self.effectiveness_rating,
+            'mood_before': self.mood_before,
+            'mood_after': self.mood_after,
+            'stress_before': self.stress_before,
+            'stress_after': self.stress_after,
+            'notes': self.notes,
+            'session_data': self.get_session_data(),
+            'created_at': self.created_at.isoformat(),
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
         }
 
 # Utility functions for database operations
